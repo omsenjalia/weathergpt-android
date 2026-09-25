@@ -1,0 +1,21 @@
+.dart_tool/
+.packages
+.pub/
+build/
+.flutter-plugins-dependencies
+.fable-state.json
+flutter_*.log
+.idea/
+.vscode/
+*.iml
+.env
+*.keystore
+*.jks
+google-services.json
+GoogleService-Info.plist
+**/android/key.properties
+**/android/local.properties
+
+# CI analyzer artifacts
+analyze.txt
+analyze-comment.md
