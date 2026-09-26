@@ -1,12 +1,5 @@
 # WeatherGPT Android — architecture
 
-_Last audited: 2026-09-26. This describes the checked-in code, not a certification
-of a live deployment._
-
-Adapted from [weathergpt-app's architecture at `9ad3c51`](https://github.com/omsenjalia/weathergpt-app/blob/9ad3c5178c52e53006d528748ea7359bd558f393/ARCHITECTURE.md).
-The Android-only layout, reduced provider set and threshold-only advisories are
-intentional differences. See [the comparison and verification report](docs/REPOSITORY_COMPARISON.md).
-
 ## 1. Scope and capability boundaries
 
 WeatherGPT is a Flutter Android client and a Python FastAPI backend in **one Git
