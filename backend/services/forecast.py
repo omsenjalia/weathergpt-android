@@ -39,6 +39,10 @@ class SelectionResult:
     error: Optional[str] = None
     is_stale: bool = False
 
+    @property
+    def requested_source(self) -> str:
+        return self.provenance.requested_source if self.provenance else "auto"
+
 class ForecastService:
     """Implements ordered provider selection with freshness and capability checks."""
 
@@ -52,21 +56,12 @@ class ForecastService:
 
     def _get_ordered_providers(self, requested_source: str = "auto") -> list[ProviderName]:
         """Get provider order based on requested source and defaults."""
-        mapping = {
-            "imd": ProviderName.IMD,
-            "accuweather": ProviderName.ACCUWEATHER,
-            "open_meteo": ProviderName.OPEN_METEO,
-            "open-meteo": ProviderName.OPEN_METEO,
-            "openmeteo": ProviderName.OPEN_METEO,
-        }
+        from schemas import normalize_source
 
-        if requested_source != "auto":
-            normalized = requested_source.lower().replace("-", "_")
-            if normalized in mapping:
-                return [mapping[normalized]]
-            return [ProviderName.OPEN_METEO]
-
-        return [ProviderName.IMD, ProviderName.ACCUWEATHER, ProviderName.OPEN_METEO]
+        source = normalize_source(requested_source)
+        if source != "auto":
+            return [ProviderName(source)]
+        return list(get_config().provider_priority)
 
     def select_forecast(
         self,

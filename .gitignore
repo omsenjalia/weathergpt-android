@@ -1,0 +1,27 @@
+# Local configuration and credentials (examples are safe to track)
+.env
+.env.*
+!.env.example
+*.keystore
+*.jks
+key.properties
+
+# Python tooling / generated reports
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+junit*.xml
+
+# Local SDKs, builds and editor files
+.DS_Store
+.idea/
+.vscode/
+
+# Distribution artifacts
+*.apk
+*.aab

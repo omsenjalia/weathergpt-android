@@ -1,223 +1,131 @@
-# App data contracts (Flutter ⇄ backend)
+# Android app data contracts
 
-Durable reference for what the Flutter app sends and renders. Migrated out of the
-temporary `feature/app/` planning folder so it survives the plan's removal.
-Endpoint inventory lives in [`web_app_api_contract.md`](web_app_api_contract.md).
+_Audited 2026-09-26. Applies to `app/` ↔ `backend/` in this monorepo._
 
-The app **renders and requests**; the backend owns provider selection
-(IMD → WeatherNext → AccuWeather → Open-Meteo), authentication, normalization,
-scientific calculation, Jev/TypeSafe evaluation and authorization.
+The authoritative topology is [../../ARCHITECTURE.md](../../ARCHITECTURE.md).
+[Endpoint inventory](web_app_api_contract.md) describes the local API. The sibling
+WeatherNext/TypeSafe contract is **not** the contract deployed from this checkout.
 
-## Configuration boundary
+## Configuration and persona context
 
-- The app's `.env` is bundled as an asset by `pubspec.yaml`. It is **not** a
-  secret store. Only `BACKEND_URL` belongs there
-  (template: `feature/app/app.env.example`).
-- Google/OAuth, IMD, AccuWeather, Groq and `TYPESAFE_API_KEY` credentials are
-  server-side only. Never add them to the Flutter `.env`.
-- A user selecting Researcher mode is a UI preference, not an entitlement. It
-  grants no Google/IAM access and no redistribution right.
+- The only bundled `.env` setting is the public `BACKEND_URL`.
+- Resolution: Dart define → `.env` → `http://10.0.2.2:8888` (Android emulator).
+- Modes: `everyone`, `farmer`, `researcher`. Explicit mode is authoritative;
+  otherwise the legacy `farmer_mode` boolean may select Farmer.
+- Chat and voice use `AgentRequestContext` to attach `crop`, `growth_stage`,
+  `soil`, `irrigation` only in Farmer mode. The backend accepts these fields;
+  enabled LLM reasoning receives them as user-supplied context.
+- No persona implicitly pins WeatherNext. Developer pins are
+  `auto|imd|accuweather|open_meteo`. Old persisted WeatherNext pins revert to auto.
 
-## Mode propagation
+## Weather requests and responses
 
-`mode` is sent on forecast, chat and voice requests. Wire values:
-`everyone | farmer | researcher`.
+Home calls `GET /v2/weather` with `lat`, `lon`, `mode`, `requested_source`,
+`forecast_days` (default 7), `hourly_hours` (default 48), optional `supplement=false`.
+`Accept-Language` accompanies backend requests. The weather API accepts an
+explicit `language` query but provider condition labels are not automatically
+translated by the header.
 
-| Field | Meaning |
-|---|---|
-| `mode` | Authoritative product mode. |
-| `farmer_mode` | Legacy boolean, kept for backward compatibility and **derived from** `mode` so the two can never disagree. |
-
-Resolution rules (implemented in `lib/core/models/app_mode.dart`):
-
-1. An explicit `mode` wins.
-2. An explicit but unknown value is **rejected**, never escalated. In strict
-   mode the caller gets `AppModeException`; non-strict callers de-escalate to
-   `everyone`, the least privileged mode.
-3. With no `mode`, legacy `farmer_mode == true` maps to `farmer`, otherwise
-   `everyone`.
-
-The app persists the persona as its canonical wire name and refuses to store an
-unrecognised value (`SettingsNotifier.updatePersona`).
-
-### Farm context
-
-Chat and voice read the user's saved profile from `farmProfileProvider` — the
-same source `/advisory` uses. `crop`, `growth_stage`, `soil` and `irrigation`
-are attached **only** in farmer mode, and only when non-blank. Private farm
-context is never sent on Everyone or Researcher requests. Chat and voice build
-their payload through one shared builder
-(`lib/core/models/request_context.dart`) so the two surfaces cannot drift.
-
-> Historical bug fixed here: both surfaces hardcoded `crop: "Wheat"` regardless
-> of the user's actual profile.
-
-## Null semantics
-
-Absent, wrong-typed, blank, `NaN` and infinite values parse to `null`
-(`lib/core/models/json_values.dart`). Nothing coerces a missing measurement to
-`0`, because `0 °C`, `0 mm` and `0%` are claims the backend did not make.
-
-Two specific traps:
-
-- A missing `weather_code` stays `null`. WMO code `0` means *clear sky*, so
-  defaulting produced a sunny sky for an unknown condition. `SkyCondition.unknown`
-  now renders a neutral sky.
-- Hour buckets with no temperature are dropped, not drawn at zero.
-
-Timestamps: strings with an explicit `Z` or `±hh:mm` offset are honoured
-exactly; a naive string is read as UTC and the assumption is reportable via
-`naiveTimestampAssumedUtc`.
-
-## Provenance and freshness
-
-`WeatherProvenance` (`lib/core/models/data_provenance.dart`) records what the
-backend reported and claims nothing otherwise. Tolerated keys, at the top level
-or inside `meta`:
-
-| Concern | Keys |
-|---|---|
-| Source | `source`, `provider`, `data_source`, `primary_source` |
-| Product | `product`, `dataset` |
-| Run | `run_id`, `run`, `model_run` |
-| Produced at | `issued_at`, `run_time`, `analysis_time`, `valid_time` |
-| Retrieved at | `retrieved_at`, `fetched_at`, `updated_at` |
-| Timezone | `timezone`, `timezone_id` |
-| Contract | `schema_version`, `contract_version` |
-| Degraded | `fallback`, `degraded`, `is_fallback` |
-| Unavailable fields | `missing_fields`, `missing`, `unavailable`, `null_reasons` |
-| Horizon | `horizon_hours`, `horizon` |
-
-A payload with no metadata reports **no source** — the UI says "Source not
-reported" rather than naming a provider. An unknown age is never labelled
-stale; staleness needs a timestamp and defaults to a 6-hour threshold.
-
-### What counts as "degraded"
-
-`fallback_reasons` lists every provider the backend skipped. A provider that
-was *never configured* (`missing_credentials`, `credentials_*`, `disabled`,
-`not_configured`, …) is **not** a degradation — WeatherNext answering after
-IMD was skipped for lack of a key is the normal path. `WeatherProvenance`
-therefore:
-
-- prefers the backend's explicit `degraded` boolean;
-- otherwise sets `fallback` only when a reason is a *real failure*
-  (`FallbackReason.isRealFailure`) or the run is `is_stale`;
-- exposes `realFailures` / `skippedUnconfigured` separately for the Debug
-  screen, and `weatherNextFailed` is true only when WeatherNext was configured,
-  tried, and lost.
-
-The full provider-chain metadata (`tried_providers`, `selection_policy_version`,
-`query_diagnostics`, `methods`, `sampled_coordinates`, `expected_member_count`,
-`validity_*`, …) is parsed verbatim for developers but never rendered on the
-Home screen.
-
-### Per-field attribution (`field_sources`)
-
-Both `/v2/weather` and `/weather` may return
+The local v2 facade intentionally returns the same **flat current + list** shape
+as `/weather`. Example (abbreviated):
 
 ```json
-"field_sources": {
-  "temperature_c": "weathernext",
-  "humidity_percent": "open_meteo",
-  "uv_index": null,
-  "_supplement": {"provider": "open_meteo", "enabled": true, "attempted": true,
-                   "filled": ["humidity_percent"], "errors": [], "cache_hit": false}
+{
+  "status": "ok",
+  "temperature_c": 25,
+  "weather_code": 0,
+  "humidity": 65,
+  "wind_kmh": 8,
+  "uv_index": 6,
+  "aqi": 30,
+  "hourly": [{"time": "2026-09-26T06:00:00+00:00", "temperature_c": 25}],
+  "forecast": [{"date": "2026-09-26", "high_c": 30, "low_c": 20}],
+  "location": {"timezone": "Asia/Kolkata", "utc_offset_seconds": 19800},
+  "selected_source": "open_meteo",
+  "requested_source": "auto",
+  "provenance": {"selected_source": "open_meteo"},
+  "field_sources": {"temperature_c": "open_meteo"}
 }
 ```
 
-`FieldSources` keeps that map exactly: a field mapped to a provider is shown
-with a "via <provider>" badge when that provider differs from the selected
-source; a field mapped to `null` renders "—" with the explanation *no provider
-supplied this value*; a field that is absent from the map is attributed to the
-selected source only when the map is entirely missing (older backend). Daily
-rows carry their own `field_sources` for sunrise/sunset/UV max. The app never
-promotes a supplemented value to the headline provider's name.
+The real offline response fixture is
+[`test/fixtures/weather_android.json`](../test/fixtures/weather_android.json).
+Python tests compare its wire fields; a Dart parser test consumes the same file.
+It is test data, not a live forecast.
 
-### Request shape the app sends to `/v2/weather`
+`parseWeatherSnapshotV2` accepts this flat shape and the richer sibling shape for
+backward compatibility. It does not imply that nested WeatherNext products exist
+here. `hourly` covers upcoming available rows, `forecast` local calendar days.
+A smaller provider horizon is not padded with invented data.
 
-`lat`, `lon`, `mode`, `requested_source` (developer pin, else `weathernext` in
-Researcher mode, else `auto`), `forecast_days` (7, or the developer slider),
-`hourly_hours` (48, or the developer slider), `supplement=false` only when the
-developer switched the Open-Meteo supplement off, `model` only when a
-non-default WeatherNext model is pinned. `lastWeatherRequestProvider` exposes
-the exact query, whether the legacy `/weather` fallback was used, and the v2
-error, for the Debug screen.
+- Missing current weather code/rain probability remain null; code `0` is clear.
+- Missing/wrong/nonfinite numeric values parse as null on the client.
+- Missing hourly temperatures are skipped instead of graphed at zero.
+- Open-Meteo's naive local hours are converted to UTC on the backend; the location
+  timezone/offset is included for labels. Older payloads without timezone metadata
+  may use client fallbacks.
+- `field_sources` identifies primary or supplemented values. Only selected
+  missing ancillary fields are supplemented; absent primary hourly data remains
+  absent. `supplement=false` disables enrichment in the weather response path.
+- `fallback_reasons` records skipped providers. Unconfigured providers are not
+  inherently a degraded forecast; actual failures/staleness are distinct.
+- Auto-source v2 failures may retry legacy `/weather` with the same horizons.
+  Explicit source pins **never** substitute an automatic legacy request.
+- Unsupported source names return 422. A supported but unavailable pin, or total
+  upstream failure, returns 502 with structured `detail`.
 
-## Everyone-mode enrichments
+## Chat and voice
 
-Exactly two, both optional and additive. Cards are hidden when absent.
+`POST /chat` accepts either `message` or `messages` (role/content history), plus
+location label, optional coordinates, language, persona and farm fields. It
+returns `response` (Markdown) and `meta` (path/client/language/intent/intent_engine/
+requested_source; optional provenance fields).
 
-**`temperature_spread`** → `{ p10_c, p90_c, source, run_id, valid_from, valid_to,
-members }`. A one-sided or inverted spread is rejected outright. This is a
-*range*: no rain or temperature probability may be inferred from percentiles.
+The keyword router may return a greeting, domain boundary, deterministic
+telemetry or a Groq agent answer. Agent failures/timeouts fall back to telemetry.
+Pinned source requests use constrained telemetry. No System One API is called.
+Widget fences are sanitized server-side and parsed by `RichMarkdown`; unknown or
+richer compatibility payloads must not be interpreted as evidence of installed
+WeatherNext/decision tools.
 
-**`precip_next_24h`** → `{ total_mm, start, end, complete, source, run_id }`.
-When `complete` is `false` the interval is labelled partial, and a partial total
-is never presented as a whole-period total.
+Voice recognition is on-device/plugin-provided. It posts recognized text to
+`/chat` and uses `flutter_tts` to read speech-cleaned output. There is no backend
+`/voice` endpoint. Farmer voice onboarding is a separate scripted, local flow.
 
-## Advisory decisions (`/advisory`)
+## Farm action windows
 
-Each forecast day carries its **own** decision at
-`windows[i].ai.overall = { choice, confidence }`. The app renders that day's
-decision and confidence. The request-level `ai.overall_verdict` and
-`ai.mean_confidence` are aggregates and are used **only** for the 7-day overview,
-never as a specific day's verdict.
+`GET /advisory` accepts lat/lon, crop, days (1–7), growth stage, soil, irrigation,
+source and mode. Response: `summary`, `windows`, `advisory_engine`, `ai`, source
+and provenance. Windows include date, suitability, explanation and available
+activity bands (`irrigation`, `spraying`, `field_work`) for the first two days.
 
-When a day has no decision, no "System One · NN% confident" badge is shown — a
-global verdict did not shape that day.
+The local engine is **thresholds**; `ai.enabled` and `ai.applied` are false.
+Crop/profile inputs do not make the rule thresholds crop-specific. Missing
+critical daily inputs yield a neutral/insufficient-data window. The client
+collapses hourly cells into two-hour visual bands, caches by request context/day,
+and exposes request failures rather than a bundled "safe" forecast.
 
-There is **no bundled offline advisory**. When the backend is unreachable the
-farmer sees an explicit unavailable state; empty window bars are never rendered,
-because they would read as "everything is neutral". Cached windows are keyed on
-location + crop + growth stage + soil + irrigation + UTC date, so a result cannot
-survive a move, a profile edit or midnight, and an in-flight response for a
-superseded context is discarded.
+Client System One badge parsers are compatibility support only; this backend
+must not fabricate confidence values. Weather-based guidance is not official
+agronomic certification or an emergency alert service.
 
-## Voice and chat cards
+## Research
 
-`/chat` (and `/voice`) answers are prose plus optional metadata. A structured
-card is **optional and additive**:
+- `/historical`: `{metric, points: [{year, value}], source}`. Rainfall sums returned
+  records; temperature/humidity average them. Year range at most 40 years apart.
+- `/comparison`: `{metric, locations: [{name, lat, lon, points}], source}`. Wire
+  locations use `name,lat,lon;name2,lat2,lon2`; names may contain commas (the final
+  two components are coordinates). Semicolons separate locations.
+- No records means an empty series, not zero-valued observations. Client chart
+  labels reflect returned coverage. Monthly climatology is explicitly unsupported.
+- Returned-window deviation is not a 30-year climate-normal anomaly. No ensemble,
+  profile, run catalog or model inference endpoint exists here.
 
-```json
-{ "response": "…",
-  "card": {
-    "label": "Rain Forecast", "verdict": "…", "explanation": "…",
-    "cta_label": "…", "source": "imd", "confidence": 0.82,
-    "stats":    [{ "label": "Chance of rain", "value": "70%", "tone": "caution" }],
-    "forecast": [{ "day": "Sat", "temperature": "31°", "rainfall": "9 mm",
-                   "condition": "rain" }] } }
-```
+## Diagnostics
 
-`tone` is `good | caution | avoid` (aliases `safe`, `favourable`, `watch`,
-`risk`, `poor` accepted); colour stays a UI concern. With no card the result
-screen shows the prose with **no stats and no forecast rows**. Decision
-confidence and weather-event probability are distinct fields and must stay
-visually distinct.
-
-> Historical bug fixed here: canned `78%` / `12 mm` stats, a fixed Tue/Wed/Thu
-> forecast and `Soil Moisture: Adequate` were rendered for every answer.
-
-## Researcher archive views
-
-`/historical` (`lat`, `lon`, `metric`, `start_year?`, `end_year?` →
-`{ metric, points: [{ year, value }] }`) and `/comparison` (`locations` as
-`name,lat,lon;…`) are real endpoints; the historical, anomaly and comparison
-screens read them. Comparison locations come from the user's saved locations,
-not a bundled city list.
-
-- Rows missing a year or a finite value are dropped, not plotted at zero.
-- Axis bounds and year labels are derived from what came back.
-- Month-of-year climatology is **not** served by `/historical`; the UI states
-  that instead of charting a bundled table.
-- `anomalyPercent` is a deviation from the mean of the *returned* window. It is
-  not a climate-normal calculation and is labelled accordingly.
-
-## What is deliberately not implemented
-
-Proposed `/v2/...` WeatherNext contracts, capability/catalog/series/profile/
-ensemble/job endpoints, structured farmer window decisions from the backend, and
-licensed exports remain **unwired**: they are design targets in
-`feature/backend/weathernext_3_integration_plan.md`, not existing services. New
-screens must not be wired to them until the backend implements and versions
-them. The withdrawn Weather Lab auto-login/custom-map proposal stays withdrawn.
+`/v2/weather/health` reports installed provider configuration/eligibility; `status`
+`ok` means the endpoint answered, **not** that upstream weather is reachable.
+The request ring buffer stores recent statuses/timings and summaries. Developer
+options control source/horizons/supplementation/fallback plus visual/voice overrides.
+Provider attribution remains primarily a debug surface. Server developer routes
+are not authenticated; protect them independently of the UI before public use.

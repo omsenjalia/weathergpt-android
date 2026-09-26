@@ -4,15 +4,14 @@ import 'package:hive_flutter/hive_flutter.dart';
 import '../../home/theme/atmosphere_theme.dart';
 
 /// Which provider the app asks the backend to use. `auto` lets the backend
-/// run its IMD → WeatherNext → AccuWeather → Open-Meteo policy; anything else
+/// run its IMD → AccuWeather → Open-Meteo policy; anything else
 /// is an explicit pin and the backend returns that provider or an honest
 /// `unavailable` — it never silently substitutes another one.
-enum DevSourcePin { auto, weathernext, openMeteo, accuweather, imd }
+enum DevSourcePin { auto, openMeteo, accuweather, imd }
 
 extension DevSourcePinWire on DevSourcePin {
   String get wire => switch (this) {
         DevSourcePin.auto => 'auto',
-        DevSourcePin.weathernext => 'weathernext',
         DevSourcePin.openMeteo => 'open_meteo',
         DevSourcePin.accuweather => 'accuweather',
         DevSourcePin.imd => 'imd',
@@ -20,19 +19,10 @@ extension DevSourcePinWire on DevSourcePin {
 
   String get label => switch (this) {
         DevSourcePin.auto => 'Auto (backend policy)',
-        DevSourcePin.weathernext => 'WeatherNext (pinned)',
         DevSourcePin.openMeteo => 'Open-Meteo (pinned)',
         DevSourcePin.accuweather => 'AccuWeather (pinned)',
         DevSourcePin.imd => 'IMD (pinned)',
       };
-}
-
-/// WeatherNext model generation to request when the source is pinned or auto.
-enum DevWnModel { wn3, wn2 }
-
-extension DevWnModelWire on DevWnModel {
-  String get wire => this == DevWnModel.wn3 ? 'weathernext_3' : 'weathernext_2';
-  String get label => this == DevWnModel.wn3 ? 'WeatherNext 3 (0.1°)' : 'WeatherNext 2';
 }
 
 class DeveloperOptions {
@@ -46,7 +36,6 @@ class DeveloperOptions {
     this.showProvenanceOnHome = false,
     this.showFieldSourceBadges = true,
     this.sourcePin = DevSourcePin.auto,
-    this.wnModel = DevWnModel.wn3,
     this.hourlyHours = 48,
     this.forecastDays = 7,
     this.supplementSecondaryFields = true,
@@ -73,9 +62,8 @@ class DeveloperOptions {
 
   /// Explicit provider pin sent as `requested_source`.
   final DevSourcePin sourcePin;
-  final DevWnModel wnModel;
 
-  /// Hourly buckets to request (1–168).
+  /// Hourly buckets to request (6–168 in the developer slider).
   final int hourlyHours;
 
   /// Daily rows to request (1–15).
@@ -101,7 +89,6 @@ class DeveloperOptions {
     bool? showProvenanceOnHome,
     bool? showFieldSourceBadges,
     DevSourcePin? sourcePin,
-    DevWnModel? wnModel,
     int? hourlyHours,
     int? forecastDays,
     bool? supplementSecondaryFields,
@@ -125,7 +112,6 @@ class DeveloperOptions {
         showFieldSourceBadges:
             showFieldSourceBadges ?? this.showFieldSourceBadges,
         sourcePin: sourcePin ?? this.sourcePin,
-        wnModel: wnModel ?? this.wnModel,
         hourlyHours: hourlyHours ?? this.hourlyHours,
         forecastDays: forecastDays ?? this.forecastDays,
         supplementSecondaryFields:
@@ -138,7 +124,6 @@ class DeveloperOptions {
   /// developer mode is *on*; with it off the app always uses defaults.
   bool get isRequestCustomised =>
       sourcePin != DevSourcePin.auto ||
-      wnModel != DevWnModel.wn3 ||
       hourlyHours != 48 ||
       forecastDays != 7 ||
       !supplementSecondaryFields;
@@ -173,10 +158,8 @@ class DeveloperOptionsNotifier extends StateNotifier<DeveloperOptions> {
           box.get('dev_show_field_source_badges', defaultValue: true) == true,
       sourcePin: _enumByName(DevSourcePin.values, box.get('dev_source_pin')) ??
           DevSourcePin.auto,
-      wnModel: _enumByName(DevWnModel.values, box.get('dev_wn_model')) ??
-          DevWnModel.wn3,
       hourlyHours:
-          ((box.get('dev_hourly_hours') as num?)?.toInt() ?? 48).clamp(1, 168).toInt(),
+          ((box.get('dev_hourly_hours') as num?)?.toInt() ?? 48).clamp(6, 168).toInt(),
       forecastDays:
           ((box.get('dev_forecast_days') as num?)?.toInt() ?? 7).clamp(1, 15).toInt(),
       supplementSecondaryFields:
@@ -197,7 +180,6 @@ class DeveloperOptionsNotifier extends StateNotifier<DeveloperOptions> {
     await box.put('dev_show_provenance_home', state.showProvenanceOnHome);
     await box.put('dev_show_field_source_badges', state.showFieldSourceBadges);
     await box.put('dev_source_pin', state.sourcePin.name);
-    await box.put('dev_wn_model', state.wnModel.name);
     await box.put('dev_hourly_hours', state.hourlyHours);
     await box.put('dev_forecast_days', state.forecastDays);
     await box.put('dev_supplement', state.supplementSecondaryFields);
@@ -258,13 +240,8 @@ class DeveloperOptionsNotifier extends StateNotifier<DeveloperOptions> {
     await _persist();
   }
 
-  Future<void> setWnModel(DevWnModel v) async {
-    state = state.copyWith(wnModel: v);
-    await _persist();
-  }
-
   Future<void> setHourlyHours(int v) async {
-    state = state.copyWith(hourlyHours: v.clamp(1, 168).toInt());
+    state = state.copyWith(hourlyHours: v.clamp(6, 168).toInt());
     await _persist();
   }
 

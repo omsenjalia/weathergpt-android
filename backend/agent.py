@@ -1,18 +1,7 @@
-"""WeatherGPT agent with complete WeatherNext data access and decision platform.
+"""WeatherGPT LangGraph agent and deterministic weather replies.
 
-Required invariant: for every authorized and supported researcher capability,
-at least one schema-validated LangGraph tool reaches same backend service and
-data product used by UI. Orchestrator and mode specialists use shared catalog;
-mode determines routing/presentation, server authorization determines access.
-
-Fixes:
-- Removes provider-bypassing HTTP and invented fallback measurements in deterministic path
-- Handles nullable structured data and unresolved locations honestly with provenance
-- Tool registry generates both bind_tools and ToolNode from same source
-- Request-scoped mode/permissions, not global mutable user state
-- All fallback tool-calling LLMs bind same capabilities
-- AgentState extended with validated mode/source constraints and evidence/job references
-- Deterministic/LLM-timeout path honors mode, source pins, requested product
+The registry contains only tools installed in this Android backend. WeatherNext
+and external decision-platform tools are intentionally not part of this build.
 """
 
 import os
@@ -42,15 +31,6 @@ from tools import (
     get_severe_weather_alerts,
     get_user_language,
 )
-
-# WeatherNext tools
-try:
-    from services.weathernext_tools import WEATHERNEXT_TOOLS
-except ImportError:
-    WEATHERNEXT_TOOLS = []
-
-# Decision engine tools already imported
-
 
 def _extract_text_content(content) -> str:
     """Normalize LLM content that may be str or list of parts."""
@@ -130,7 +110,8 @@ _text_llm_chain = None
 
 
 def has_llm() -> bool:
-    return bool(os.getenv("GROQ_API_KEY"))
+    key = os.getenv("GROQ_API_KEY", "").strip()
+    return bool(key and not key.startswith("your_"))
 
 
 def _get_llm():
@@ -246,6 +227,8 @@ def run_deterministic_telemetry_fallback(
     language: str = "English",
     lat: float | None = None,
     lon: float | None = None,
+    requested_source: str = "auto",
+    mode: str = "everyone",
 ) -> str:
     """Zero-error deterministic synthesizer with honest unavailable handling.
 
@@ -314,7 +297,7 @@ def run_deterministic_telemetry_fallback(
         fore_error = None
 
         try:
-            curr = get_current_weather.invoke({"latitude": float(resolved_lat), "longitude": float(resolved_lon)})
+            curr = get_current_weather.invoke({"latitude": float(resolved_lat), "longitude": float(resolved_lon), "requested_source": requested_source})
             if isinstance(curr, dict) and curr.get("error"):
                 curr_error = curr.get("error")
                 curr = {}
@@ -323,7 +306,7 @@ def run_deterministic_telemetry_fallback(
             print(f"[Fallback] get_current_weather failed: {tool_err}")
 
         try:
-            fore = get_weather_forecast.invoke({"latitude": float(resolved_lat), "longitude": float(resolved_lon), "days": 3})
+            fore = get_weather_forecast.invoke({"latitude": float(resolved_lat), "longitude": float(resolved_lon), "days": 3, "requested_source": requested_source})
             if isinstance(fore, dict) and fore.get("error"):
                 fore_error = fore.get("error")
                 fore = {}
@@ -516,6 +499,7 @@ def run_weather_agent(
     crop: str = "",
     mode: str = "everyone",
     requested_source: str = "auto",
+    farm_context: dict | None = None,
 ) -> str:
     """Run weather agent with validated mode and source constraints.
 
@@ -551,7 +535,8 @@ def run_weather_agent(
         farmer_instructions = f"""
 🌾 AGRICULTURAL & FARMER ADVISORY SPECIALIST SUB-AGENT ACTIVE (mode={mode}):
 - Act as an expert Agricultural Weather Specialist advising a farmer for {crop_name}.
-- Use decision tools (evaluate_weather_decision, compare_eligible_windows) for farm advice
+- Use the available agricultural telemetry tools; there is no external decision engine.
+- Saved farm context (unmeasured/user supplied): {farm_context or {}}
 - Provide direct, practical guidance for farming operations:
   * Irrigation timing: Advise whether to irrigate today/tomorrow based on forecasted rainfall and heat.
   * Spraying windows: Advise if wind speed and rain probability allow pesticide or fertilizer spraying.
@@ -564,10 +549,10 @@ def run_weather_agent(
         if mode == "researcher":
             farmer_instructions = f"""
 🔬 RESEARCHER MODE ACTIVE (mode={mode}, source={requested_source}):
-- You have access to complete authorized WeatherNext data via tools: query_weathernext_data, get_weathernext_profile, analyze_weathernext_ensemble, etc.
-- Every authorized WeatherNext-related data capability should be accessible through tools
-- Use list_weathernext_capabilities to discover available data
-- For explicit source=weathernext requests, you must return that data or precise unavailable, not fallback masquerading
+- Available tools provide current, hourly, daily and agricultural weather telemetry.
+- WeatherNext, ensemble members, pressure profiles and model inference are not available in this build.
+- Never claim access to tools or data not present in the tool registry.
+- Do not invent model runs, ensemble statistics or official alerts.
 - Provide scientific explanations with provenance, units, run IDs, member counts
 - Distinguish forecast/observation, MSL vs surface pressure, rain vs total precipitation
 """
@@ -575,7 +560,7 @@ def run_weather_agent(
             farmer_instructions = f"""
 🌍 STANDARD WEATHER ASSISTANT MODE (mode={mode}, FARMER ADVISORY OFF):
 - Act as general conversational weather assistant for everyday citizens
-- For everyday mode, retain normal weather experience, adding only small useful WeatherNext detail
+- Give concise, practical weather guidance.
 - Do NOT act as farmer advisor unless user explicitly asks farming question
 - Mode: {mode}, Source: {requested_source}
 """
@@ -586,7 +571,7 @@ PERSONALITY & STRICT DOMAIN SCOPE:
 - Maintain full context across conversation history for weather, city, and location details.
 - Provide practical advice and safety advisories for severe weather.
 - Mode: {mode}, Requested source: {requested_source} - honor source pins for researcher mode
-- For researcher mode: every authorized WeatherNext capability must have UI and tool path
+- Never claim WeatherNext or TypeSafe capabilities; they are not installed here.
 
 ⛔ STRICT DOMAIN RESTRICTION — NON-WEATHER & OFF-TOPIC INQUIRIES:
 - Basic polite greetings allowed

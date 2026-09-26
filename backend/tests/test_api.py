@@ -8,6 +8,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 from main import app
 
+pytestmark = pytest.mark.usefixtures("offline_weather")
+
 client = TestClient(app)
 
 def test_health_endpoint():
@@ -16,7 +18,7 @@ def test_health_endpoint():
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "ok"
-    assert "weathergpt-app" in data["clients"]
+    assert "weathergpt-android" in data["clients"]
 
 def test_dev_diagnostics_endpoint():
     """Verify GET /dev returns system metrics, LLM config, and endpoints."""
@@ -99,7 +101,7 @@ def test_weather_endpoint_schema():
     """GET /weather returns fields expected by the Flutter home screens."""
     response = client.get("/weather", params={"lat": 23.0225, "lon": 72.5714})
     # Upstream Open-Meteo must be reachable in CI; allow 200 or upstream error codes
-    assert response.status_code in (200, 502, 504)
+    assert response.status_code == 200
     if response.status_code == 200:
         data = response.json()
         for key in (
@@ -119,7 +121,7 @@ def test_advisory_endpoint_shape():
     response = client.get(
         "/advisory", params={"lat": 23.02, "lon": 72.57, "crop": "wheat", "days": 3}
     )
-    assert response.status_code in (200, 502, 504)
+    assert response.status_code == 200
     if response.status_code == 200:
         data = response.json()
         assert "windows" in data
@@ -155,9 +157,9 @@ def test_chat_web_greeting_meta():
     assert meta["language"] == "Gujarati"
 
 
-def test_root_lists_both_clients():
+def test_root_lists_android_client():
     data = client.get("/").json()
-    assert set(data["clients"]) == {"web", "mobile"}
+    assert set(data["clients"]) == {"mobile"}
     assert data["fusion_priority"][:2] == ["Open-Meteo (ECMWF)", "AccuWeather"]
 
 
@@ -167,7 +169,7 @@ def test_fusion_endpoint_requires_coords():
 
 def test_fusion_endpoint_shape():
     response = client.get("/fusion", params={"lat": 23.02, "lon": 72.57})
-    assert response.status_code in (200, 502, 504)
+    assert response.status_code == 200
     if response.status_code == 200:
         data = response.json()
         assert data["weights"]["Open-Meteo (ECMWF)"] == 2.0

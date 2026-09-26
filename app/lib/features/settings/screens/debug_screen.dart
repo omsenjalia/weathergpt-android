@@ -266,7 +266,6 @@ class _StateTab extends ConsumerWidget {
         _section('Developer overrides'),
         _kvList([
           ('Source pin', dev.sourcePin.label),
-          ('WN model', dev.wnModel.label),
           ('Hourly hours', '${dev.hourlyHours}'),
           ('Forecast days', '${dev.forecastDays}'),
           ('Supplement', dev.supplementSecondaryFields ? 'on (fill nulls from Open-Meteo)' : 'OFF (raw provider only)'),
@@ -624,9 +623,6 @@ class _BackendTab extends ConsumerWidget {
           error: (e, _) => _errorBox(e),
           data: (h) {
             final providers = (h['provider_health'] as Map?)?.cast<String, dynamic>() ?? {};
-            final auth = (h['weathernext_auth'] as Map?)?.cast<String, dynamic>() ?? {};
-            final cache = (h['cache'] as Map?)?.cast<String, dynamic>() ?? {};
-            final bq = (h['weathernext_bigquery'] as Map?)?.cast<String, dynamic>() ?? {};
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -643,14 +639,6 @@ class _BackendTab extends ConsumerWidget {
                     _ProviderHealthRow(name: e.key, data: (e.value as Map).cast<String, dynamic>()),
                   ],
                 ])),
-                _section('WeatherNext auth'),
-                _kvList([for (final e in auth.entries) (e.key, '${e.value}')], mono: true),
-                if (bq.isNotEmpty) ...[
-                  _section('WeatherNext BigQuery'),
-                  _kvList([for (final e in bq.entries) (e.key, e.value is Map || e.value is List ? jsonEncode(e.value) : '${e.value}')], mono: true),
-                ],
-                _section('Forecast cache'),
-                _kvList([for (final e in cache.entries) (e.key, e.value is List ? (e.value as List).join('\n') : '${e.value}')], mono: true),
                 _jsonBlock(context, h, title: 'Raw health JSON'),
               ],
             );

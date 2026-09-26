@@ -243,23 +243,6 @@ class SettingsScreen extends ConsumerWidget {
                       ),
                     ),
                     ListTile(
-                      title: const Text('WeatherNext model'),
-                      subtitle: Text(dev.wnModel.label),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                      child: DropdownButtonFormField<DevWnModel>(
-                        initialValue: dev.wnModel,
-                        items: [
-                          for (final v in DevWnModel.values)
-                            DropdownMenuItem(value: v, child: Text(v.label)),
-                        ],
-                        onChanged: (v) {
-                          if (v != null) devN.setWnModel(v);
-                        },
-                      ),
-                    ),
-                    ListTile(
                       title: const Text('Hourly horizon'),
                       subtitle: Text('${dev.hourlyHours} h requested (backend caps at provider horizon)'),
                     ),
@@ -377,7 +360,7 @@ class SettingsScreen extends ConsumerWidget {
                       ),
                     ),
                     SwitchListTile(
-                      title: const Text('Disable video sky'),
+                      title: const Text('Disable animated sky'),
                       subtitle: const Text('Use gradient only'),
                       value: dev.disableVideoSky,
                       activeThumbColor: AppColors.accent,

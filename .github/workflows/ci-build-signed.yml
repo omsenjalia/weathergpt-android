@@ -1,0 +1,22 @@
+name: CI Build APK
+
+on:
+  pull_request:
+  push:
+    branches: [main, develop, 'arena/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apk-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    uses: ./.github/workflows/ci-test.yml
+  apk:
+    needs: checks
+    uses: ./.github/workflows/build-apk.yml
+    secrets: inherit

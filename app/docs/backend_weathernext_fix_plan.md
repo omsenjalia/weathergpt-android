@@ -1,3 +1,7 @@
+> **Historical sibling-app research, not the current Android implementation.**
+> WeatherNext and MP4 video backgrounds are not installed in this repository.
+> See [../../ARCHITECTURE.md](../../ARCHITECTURE.md) for current capabilities.
+
 # Backend Fix Plan — Make WeatherNext Live (All 9 Surfaces) for SIH 2026
 
 **Target repo:** `omsenjalia/weathergpt` (backend at `weathergpt-backend.vercel.app`)

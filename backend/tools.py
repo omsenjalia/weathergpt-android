@@ -1,7 +1,7 @@
 """Weather and agricultural tools with shared forecast service.
 
 Updates:
-- All weather tools now use shared forecast service (IMD -> WeatherNext -> AccuWeather -> Open-Meteo)
+- All weather tools now use shared forecast service (IMD -> AccuWeather -> Open-Meteo)
 - get_current_weather uses forecast service, not legacy fusion directly
 - get_weather_forecast uses forecast service with actual provider capabilities (15 days max for WeatherNext synoptic)
 - Preserves supplementary capabilities with explicit provenance, units, AQI standard, missing states
@@ -62,8 +62,6 @@ __all__ = [
     "get_current_weather", "get_weather_forecast", "get_hourly_forecast", "get_air_quality",
     "get_uv_index_and_sun", "get_surface_pressure_and_wind",
     "get_agricultural_crop_telemetry", "get_severe_weather_alerts",
-    "list_decision_capabilities", "evaluate_weather_decision", "compare_eligible_windows",
-    "request_missing_context", "assess_reply_evidence", "get_decision_result",
 ]
 
 
@@ -90,15 +88,15 @@ def geocode_city(city_name: str) -> dict:
 
 
 @tool
-def get_current_weather(latitude: float, longitude: float) -> dict:
-    """Get current weather conditions using shared forecast service (IMD -> WeatherNext -> AccuWeather -> Open-Meteo).
+def get_current_weather(latitude: float, longitude: float, requested_source: str = "auto") -> dict:
+    """Get current weather conditions using shared forecast service (IMD -> AccuWeather -> Open-Meteo).
 
     Returns normalized result with capability metadata, provenance, and explicit source.
     Call geocode_city first for coordinates.
     """
     try:
         service = get_forecast_service()
-        result = service.select_forecast(lat=latitude, lon=longitude, product="current", requested_source="auto", mode="everyone")
+        result = service.select_forecast(lat=latitude, lon=longitude, product="current", requested_source=requested_source, mode="everyone")
 
         if result.forecast and result.forecast.current:
             curr = result.forecast.current
@@ -121,13 +119,6 @@ def get_current_weather(latitude: float, longitude: float) -> dict:
                 "is_stale": result.is_stale,
             }
 
-        # Fallback to legacy fusion for current if new service unavailable
-        legacy = fuse_current_weather(latitude, longitude)
-        if isinstance(legacy, dict) and not legacy.get("error"):
-            legacy["source"] = "legacy_fusion"
-            legacy["provenance"] = {"note": "legacy fusion Open-Meteo > AccuWeather > others"}
-            return legacy
-
         return {"error": result.error or "No provider available", "fallback_reasons": result.fallback_reasons}
 
     except Exception as e:
@@ -135,10 +126,10 @@ def get_current_weather(latitude: float, longitude: float) -> dict:
 
 
 @tool
-def get_weather_forecast(latitude: float, longitude: float, days: int = 7) -> dict:
+def get_weather_forecast(latitude: float, longitude: float, days: int = 7, requested_source: str = "auto") -> dict:
     """Get daily forecast up to 15 days (WeatherNext synoptic max) via shared forecast service.
 
-    Uses IMD -> WeatherNext -> AccuWeather -> Open-Meteo selection.
+    Uses IMD -> AccuWeather -> Open-Meteo selection.
     Returns source/run/coverage metadata. Call geocode_city first.
     """
     try:
@@ -150,7 +141,7 @@ def get_weather_forecast(latitude: float, longitude: float, days: int = 7) -> di
             lat=latitude,
             lon=longitude,
             product="forecast",
-            requested_source="auto",
+            requested_source=requested_source,
             mode="everyone",
             forecast_days=forecast_days,
         )
@@ -183,35 +174,7 @@ def get_weather_forecast(latitude: float, longitude: float, days: int = 7) -> di
                 "is_stale": result.is_stale,
             }
 
-        # Fallback to direct Open-Meteo if needed
-        with httpx.Client(timeout=10) as client:
-            response = client.get(
-                "https://api.open-meteo.com/v1/forecast",
-                params={
-                    "latitude": latitude,
-                    "longitude": longitude,
-                    "daily": "temperature_2m_max,temperature_2m_min,rain_sum,precipitation_probability_max,wind_speed_10m_max,weather_code",
-                    "forecast_days": forecast_days,
-                    "timezone": "auto",
-                },
-            )
-            data = response.json()
-            daily = data.get("daily", {})
-            dates = daily.get("time", [])
-            codes = daily.get("weather_code", daily.get("weathercode", []))
-            forecast = []
-            for i, date in enumerate(dates):
-                weather_code = codes[i] if i < len(codes) else -1
-                forecast.append({
-                    "date": date,
-                    "max_temp_celsius": daily.get("temperature_2m_max", [])[i] if i < len(daily.get("temperature_2m_max", [])) else None,
-                    "min_temp_celsius": daily.get("temperature_2m_min", [])[i] if i < len(daily.get("temperature_2m_min", [])) else None,
-                    "rainfall_mm": daily.get("rain_sum", [])[i] if i < len(daily.get("rain_sum", [])) else None,
-                    "rain_probability_percent": daily.get("precipitation_probability_max", [])[i] if i < len(daily.get("precipitation_probability_max", [])) else None,
-                    "max_wind_kmh": daily.get("wind_speed_10m_max", [])[i] if i < len(daily.get("wind_speed_10m_max", [])) else None,
-                    "condition": WEATHER_CODES.get(weather_code, "Unknown"),
-                })
-            return {"forecast": forecast, "source": "open-meteo-fallback", "fallback_reasons": result.fallback_reasons}
+        return {"error": result.error or "No provider available", "fallback_reasons": result.fallback_reasons}
 
     except Exception as e:
         return {"error": str(e)}

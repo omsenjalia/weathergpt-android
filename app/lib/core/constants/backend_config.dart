@@ -1,7 +1,6 @@
-/// Backend URL resolution — supports .env, --dart-define, and production fallback.
+/// Backend URL resolution — supports .env, --dart-define, and an emulator-only development fallback.
 library;
 
-const String kProductionBackendUrl = 'https://weathergpt-backend.vercel.app';
 const String kEmulatorBackendUrl = 'http://10.0.2.2:8888';
 
 String resolveBackendUrl({String? dartDefineUrl, String? dotenvUrl}) {
@@ -15,5 +14,5 @@ String resolveBackendUrl({String? dartDefineUrl, String? dotenvUrl}) {
     v = v.replaceAll(RegExp(r'/+$'), '');
     return v.isEmpty ? null : v;
   }
-  return pick(dartDefineUrl) ?? pick(dotenvUrl) ?? kProductionBackendUrl;
+  return pick(dartDefineUrl) ?? pick(dotenvUrl) ?? kEmulatorBackendUrl;
 }

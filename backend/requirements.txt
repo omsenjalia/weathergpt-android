@@ -8,4 +8,3 @@ python-dotenv==1.0.1
 langdetect==1.0.9
 pydantic
 psutil
-pytest

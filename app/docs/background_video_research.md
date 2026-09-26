@@ -1,3 +1,7 @@
+> **Historical sibling-app research, not the current Android implementation.**
+> WeatherNext and MP4 video backgrounds are not installed in this repository.
+> See [../../ARCHITECTURE.md](../../ARCHITECTURE.md) for current capabilities.
+
 # Background video research
 
 The home screen uses bundled portrait MP4s so the app remains usable when a CDN is

@@ -31,7 +31,8 @@ async def chat(request: ChatRequest, http_request: Request) -> ChatResponse:
     result = await run_in_threadpool(run_chat, request, client=client)
     meta = {"path": result.path, "client": result.client, "language": result.language,
             "location": result.location, "intent": result.intent,
-            "intent_engine": result.intent_engine}
+            "intent_engine": result.intent_engine,
+            "requested_source": result.requested_source}
     if result.intent_confidence is not None:
         meta["intent_confidence"] = round(result.intent_confidence, 3)
     return ChatResponse(response=result.response, meta=meta)

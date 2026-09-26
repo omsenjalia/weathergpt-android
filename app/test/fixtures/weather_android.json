@@ -1,0 +1,167 @@
+{
+  "lat": 23.02,
+  "lon": 72.57,
+  "language": "en",
+  "temperature_c": 25.0,
+  "feels_like_c": null,
+  "condition": "Clear sky",
+  "weather_code": 0,
+  "high_c": 30,
+  "low_c": 20,
+  "rain_probability": 10.0,
+  "wind_kmh": 8.0,
+  "wind_direction": null,
+  "humidity": 65.0,
+  "pressure_hpa": null,
+  "precipitation_mm": null,
+  "uv_index": 6,
+  "sunrise": "2026-09-26T06:00",
+  "sunset": "2026-09-26T18:00",
+  "aqi": 30,
+  "pm2_5": 8,
+  "hourly": [
+    {
+      "time": "2026-09-26T05:00:00+00:00",
+      "temperature_c": 25,
+      "rain_probability": 10,
+      "precipitation_mm": 0,
+      "wind_kmh": 8,
+      "humidity": 65,
+      "condition": "Clear sky",
+      "weather_code": 0
+    },
+    {
+      "time": "2026-09-26T06:00:00+00:00",
+      "temperature_c": 25,
+      "rain_probability": 10,
+      "precipitation_mm": 0,
+      "wind_kmh": 8,
+      "humidity": 65,
+      "condition": "Clear sky",
+      "weather_code": 0
+    }
+  ],
+  "timezone": "UTC",
+  "location": {
+    "lat": 23.02,
+    "lon": 72.57,
+    "timezone": "UTC",
+    "utc_offset_seconds": 0
+  },
+  "status": "ok",
+  "selected_source": "open_meteo",
+  "forecast": [
+    {
+      "date": "2026-09-26",
+      "high_c": 30,
+      "low_c": 20,
+      "rain_probability": 10,
+      "rain_mm": 0,
+      "condition": "Clear sky",
+      "weather_code": 0,
+      "wind_kmh_max": 12,
+      "sunrise": "2026-09-26T06:00",
+      "sunset": "2026-09-26T18:00",
+      "uv_index_max": 6,
+      "covers_full_day": null,
+      "precipitation_interval": null
+    }
+  ],
+  "source": "open_meteo",
+  "requested_source": "auto",
+  "selection_policy_version": "1.0.0",
+  "providers_used": [
+    "open_meteo"
+  ],
+  "fallback_reasons": [
+    {
+      "provider": "imd",
+      "reason_code": "not_configured",
+      "detail": "imd API key/credentials not configured"
+    },
+    {
+      "provider": "accuweather",
+      "reason_code": "not_configured",
+      "detail": "accuweather API key/credentials not configured"
+    }
+  ],
+  "provenance": {
+    "requested_source": "auto",
+    "selected_source": "open_meteo",
+    "selection_policy_version": "1.0.0",
+    "product": "forecast",
+    "model": null,
+    "model_version": null,
+    "run_id": null,
+    "init_time_utc": "2026-09-26T05:07:39.042068+00:00",
+    "ingested_at_utc": null,
+    "served_at_utc": "2026-09-26T05:07:39.042103+00:00",
+    "validity_start_utc": null,
+    "validity_end_utc": null,
+    "resolution_deg": null,
+    "sampled_coordinates": {
+      "lat": 23.02,
+      "lon": 72.57
+    },
+    "requested_coordinates": {
+      "lat": 23.02,
+      "lon": 72.57
+    },
+    "spatial_method": null,
+    "distance_km": null,
+    "is_stale": false,
+    "freshness_status": "fresh",
+    "fallback_reasons": [
+      {
+        "provider": "imd",
+        "reason_code": "not_configured",
+        "detail": "imd API key/credentials not configured"
+      },
+      {
+        "provider": "accuweather",
+        "reason_code": "not_configured",
+        "detail": "accuweather API key/credentials not configured"
+      }
+    ],
+    "sources": [
+      "open_meteo"
+    ],
+    "expected_member_count": null,
+    "valid_member_count": null,
+    "coverage_completeness": null,
+    "horizon_hours": null,
+    "surface": null,
+    "table": null,
+    "bucket": null,
+    "is_ensemble": false,
+    "query_diagnostics": null,
+    "methods": {}
+  },
+  "field_sources": {
+    "temperature_c": "open_meteo",
+    "wind_speed_kmh": "open_meteo",
+    "precipitation_mm": null,
+    "precipitation_probability": null,
+    "feels_like_c": null,
+    "humidity_percent": "open_meteo",
+    "pressure_hpa": null,
+    "wind_direction_deg": null,
+    "uv_index": null,
+    "cloud_cover_percent": null,
+    "condition": "open_meteo",
+    "sunrise": "open_meteo",
+    "sunset": "open_meteo",
+    "uv_index_max": "open_meteo",
+    "air_quality": "open_meteo",
+    "_supplement": {
+      "provider": "open_meteo",
+      "enabled": true,
+      "attempted": false,
+      "filled": [],
+      "errors": [],
+      "cache_hit": false
+    }
+  },
+  "fetched_at": "2026-09-26T05:07:39.042185Z",
+  "mode": "everyone"
+}

@@ -46,6 +46,12 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <intent>
+            <action android:name="android.speech.RecognitionService"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE"/>
+        </intent>
         <!-- url_launcher: open Weather Lab / Google sign-in in external browser -->
         <intent>
             <action android:name="android.intent.action.VIEW"/>
