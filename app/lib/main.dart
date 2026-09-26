@@ -53,7 +53,7 @@ Future<void> main() async {
   try {
     await dotenv.load(fileName: '.env');
   } catch (_) {
-    // .env missing is ok — fallback to production URL via backend_config.dart
+    // .env missing is ok — fallback to local emulator URL via backend_config.dart
   }
   await Hive.initFlutter();
   await Hive.openBox('settings');

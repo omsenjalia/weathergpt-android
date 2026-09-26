@@ -41,11 +41,7 @@ Map<String, dynamic> buildWeatherQuery({
 }) {
   final customise = dev.enabled;
   final pin = customise ? dev.sourcePin : DevSourcePin.auto;
-  // Researcher mode pins WeatherNext by contract unless a developer override
-  // explicitly asks for something else.
-  final requested = pin != DevSourcePin.auto
-      ? pin.wire
-      : (mode == AppMode.researcher ? 'weathernext' : 'auto');
+  final requested = pin.wire;
   return {
     'lat': lat,
     'lon': lon,
@@ -54,11 +50,10 @@ Map<String, dynamic> buildWeatherQuery({
     'forecast_days': customise ? dev.forecastDays : kDefaultForecastDays,
     'hourly_hours': customise ? dev.hourlyHours : kDefaultHourlyHours,
     if (customise && !dev.supplementSecondaryFields) 'supplement': false,
-    if (customise && dev.wnModel != DevWnModel.wn3) 'model': dev.wnModel.wire,
   };
 }
 
-/// Current conditions — WeatherNext aware via /v2/weather.
+/// Current conditions with provider provenance via /v2/weather.
 /// v2 returns selected_source, fallback_reasons, per-field sources and richer
 /// provenance. Falls back to legacy /weather if v2 is unavailable (unless the
 /// developer option disables that so failures are visible).
@@ -86,7 +81,7 @@ final weatherProvider = FutureProvider<WeatherSnapshot>((ref) async {
       // The backend answered honestly that nothing could serve this request
       // (typically a pinned source). Surface that instead of falling back.
       final reasons = (data['fallback_reasons'] as List?)
-              ?.map((r) => r is Map ? '${r['provider']}: ${r['reason']}' : '$r')
+              ?.map((r) => r is Map ? '${r['provider']}: ${r['detail'] ?? r['reason'] ?? r['reason_code']}' : '$r')
               .join('; ') ??
           '';
       final err = data['error'] ?? 'No forecast provider available';
@@ -101,11 +96,9 @@ final weatherProvider = FutureProvider<WeatherSnapshot>((ref) async {
   } catch (e) {
     v2Error = e;
     if (dev.enabled && dev.disableV2Fallback) rethrow;
-    if (e is ServerError && (e.message.contains('unavailable') || e.message.contains('provider'))) {
-      // A pinned source that is honestly unavailable must not be replaced by
-      // a silent legacy call to a different provider.
-      if (query['requested_source'] != 'auto') rethrow;
-    }
+    // An explicit provider constraint must survive ALL failure shapes, not
+    // just errors whose English message happens to contain "provider".
+    if (query['requested_source'] != 'auto') rethrow;
   }
 
   final legacyQuery = {
@@ -113,6 +106,9 @@ final weatherProvider = FutureProvider<WeatherSnapshot>((ref) async {
     'lon': location.lon,
     'mode': mode.wire,
     'requested_source': query['requested_source'],
+    'forecast_days': query['forecast_days'],
+    'hourly_hours': query['hourly_hours'],
+    if (query.containsKey('supplement')) 'supplement': query['supplement'],
   };
   final data = await ApiClient.instance.get(ApiEndpoints.weather, query: legacyQuery);
   ref.read(lastWeatherRequestProvider.notifier).state = WeatherRequestInfo(

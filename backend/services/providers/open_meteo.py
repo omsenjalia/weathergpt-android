@@ -6,7 +6,8 @@ Wraps existing open_meteo service with new provider interface.
 from __future__ import annotations
 
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from typing import Any, Optional
 
 from services.forecast_models import (
@@ -65,7 +66,7 @@ class OpenMeteoProvider(BaseForecastProvider):
                     "longitude": lon,
                     "current": "temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m,surface_pressure,precipitation",
                     "hourly": "temperature_2m,precipitation_probability,precipitation,wind_speed_10m,weather_code,relative_humidity_2m",
-                    "daily": "temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code,rain_sum,sunrise,sunset,uv_index_max,wind_direction_10m_dominant",
+                    "daily": "temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code,rain_sum,sunrise,sunset,uv_index_max,wind_direction_10m_dominant,wind_speed_10m_max",
                     "forecast_days": forecast_days,
                     "timezone": timezone_str,
                 },
@@ -77,7 +78,11 @@ class OpenMeteoProvider(BaseForecastProvider):
             hourly = data.get("hourly") or {}
 
             # Build normalized forecast
-            code = extract_weather_code(current, default=0)
+            code = extract_weather_code(current, default=None)
+            try:
+                local_tz = ZoneInfo(data.get("timezone") or "UTC")
+            except (ZoneInfoNotFoundError, ValueError):
+                local_tz = timezone(timedelta(seconds=data.get("utc_offset_seconds") or 0))
             current_point = ForecastPoint(
                 time_utc=datetime.now(timezone.utc),
                 temperature_c=current.get("temperature_2m"),
@@ -101,13 +106,14 @@ class OpenMeteoProvider(BaseForecastProvider):
             h_codes = hourly.get("weather_code") or hourly.get("weathercode") or []
             h_humidity = hourly.get("relative_humidity_2m") or []
 
-            for i in range(min(len(h_times), 168)):  # up to 7 days hourly
+            for i in range(len(h_times)):  # up to 7 days hourly
                 try:
                     t = datetime.fromisoformat(str(h_times[i]).replace("Z", "+00:00"))
                     if t.tzinfo is None:
-                        t = t.replace(tzinfo=timezone.utc)
-                except Exception:
-                    t = datetime.now(timezone.utc)
+                        t = t.replace(tzinfo=local_tz)
+                    t = t.astimezone(timezone.utc)
+                except (ValueError, TypeError):
+                    continue
 
                 hourly_points.append(ForecastPoint(
                     time_utc=t,
@@ -130,6 +136,9 @@ class OpenMeteoProvider(BaseForecastProvider):
             d_sunrise = daily.get("sunrise") or []
             d_sunset = daily.get("sunset") or []
 
+            d_uv = daily.get("uv_index_max") or []
+            d_wind = daily.get("wind_speed_10m_max") or []
+
             for i in range(min(len(d_times), forecast_days)):
                 daily_list.append({
                     "date": d_times[i],
@@ -137,8 +146,10 @@ class OpenMeteoProvider(BaseForecastProvider):
                     "low_c": d_lows[i] if i < len(d_lows) else None,
                     "rain_probability": d_pops[i] if i < len(d_pops) else None,
                     "rain_mm": d_rain[i] if i < len(d_rain) else None,
-                    "condition": code_to_condition(d_codes[i] if i < len(d_codes) else 0),
-                    "weather_code": d_codes[i] if i < len(d_codes) else 0,
+                    "condition": code_to_condition(d_codes[i] if i < len(d_codes) else None),
+                    "weather_code": d_codes[i] if i < len(d_codes) else None,
+                    "wind_kmh_max": d_wind[i] if i < len(d_wind) else None,
+                    "uv_index_max": d_uv[i] if i < len(d_uv) else None,
                     "sunrise": d_sunrise[i] if i < len(d_sunrise) else None,
                     "sunset": d_sunset[i] if i < len(d_sunset) else None,
                 })
@@ -173,7 +184,7 @@ class OpenMeteoProvider(BaseForecastProvider):
             )
 
             normalized = NormalizedForecast(
-                location={"lat": lat, "lon": lon, "timezone": data.get("timezone", "auto")},
+                location={"lat": lat, "lon": lon, "timezone": data.get("timezone", "UTC"), "utc_offset_seconds": data.get("utc_offset_seconds")},
                 current=current_point,
                 hourly=hourly_points,
                 daily=daily_list,

@@ -26,7 +26,7 @@ except ImportError:
 
 router = APIRouter(tags=["dev"])
 
-CLIENTS = ["weathergpt-app"]
+CLIENTS = ["weathergpt-android"]
 
 @router.get("/health")
 @router.get("/health/", include_in_schema=False)

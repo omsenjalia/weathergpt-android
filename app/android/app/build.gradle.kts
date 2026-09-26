@@ -53,13 +53,15 @@ android {
                     // Produce an unsigned release artifact for later signing.
                     signingConfig = null
                 }
-                mode == "signed" && hasReleaseKeystore -> {
+                mode == "signed" -> {
+                    require(hasReleaseKeystore) { "SIGNING_MODE=signed requires a valid keystore and all signing credentials" }
                     signingConfig = signingConfigs.getByName("release")
                 }
-                else -> {
+                mode == "debug-keys" -> {
                     // Local `flutter run --release` and CI without secrets.
                     signingConfig = signingConfigs.getByName("debug")
                 }
+                else -> error("Unknown SIGNING_MODE: $mode")
             }
         }
     }

@@ -1,0 +1,78 @@
+name: Nightly Release APK
+
+on:
+  schedule:
+    # Midnight India time; release tags use the UTC calendar date.
+    - cron: '30 18 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-release
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    # Never publish another branch through a manually dispatched run.
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      run: ${{ steps.gate.outputs.run }}
+      stamp: ${{ steps.gate.outputs.stamp }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: gate
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          echo "stamp=$(date -u +%Y%m%d)" >> "$GITHUB_OUTPUT"
+          if [[ "$EVENT_NAME" == workflow_dispatch ]] || \
+             [[ -n "$(git log -1 --since='24 hours ago' --format=%H)" ]]; then
+            echo 'run=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'run=false' >> "$GITHUB_OUTPUT"
+          fi
+  checks:
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    uses: ./.github/workflows/ci-test.yml
+  apk:
+    needs: [gate, checks]
+    uses: ./.github/workflows/build-apk.yml
+    with:
+      release: true
+      stamp: ${{ needs.gate.outputs.stamp }}
+    secrets: inherit
+  publish:
+    needs: [gate, apk]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.apk.outputs.artifact_name }}
+      - name: Publish direct-download APK for the tested commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_SHA: ${{ github.sha }}
+          STAMP: ${{ needs.gate.outputs.stamp }}
+        run: |
+          tag="nightly-$STAMP"
+          # A rerun must not replace an APK under a tag for a different commit.
+          if gh release view "$tag" >/dev/null 2>&1 || \
+             gh api "repos/$GH_REPO/git/ref/tags/$tag" >/dev/null 2>&1; then
+            echo "::error::Release or tag $tag already exists; leaving its tag and APK unchanged."
+            exit 1
+          fi
+          gh release create "$tag" release.apk \
+            --target "$RELEASE_SHA" --title "WeatherGPT Android Nightly $STAMP" \
+            --prerelease --generate-notes \
+            --notes 'Download release.apk directly. This is a signed Android prerelease, not a Play Store production release.'

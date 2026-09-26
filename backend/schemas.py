@@ -11,6 +11,8 @@ from pydantic import BaseModel, Field, model_validator
 
 LanguageKind = Literal["English", "Hindi", "Gujarati", "Marathi", "Tamil", "Telugu", "Bengali", "Kannada", "Malayalam", "Punjabi", "en", "hi", "gu", "mr", "ta", "te", "bn", "kn", "ml"]
 
+ClientKind = Literal["web", "mobile", "unknown"]
+
 AppMode = Literal["everyone", "farmer", "researcher"]
 
 class ChatRequest(BaseModel):
@@ -23,6 +25,9 @@ class ChatRequest(BaseModel):
     language: Optional[str] = Field("English", description="Language name or BCP-47 / ISO code")
     farmer_mode: Optional[bool] = Field(False, description="Legacy flag; true maps to mode='farmer'")
     crop: Optional[str] = Field(None, description="Active crop context")
+    growth_stage: Optional[str] = None
+    soil: Optional[str] = None
+    irrigation: Optional[str] = None
     client: Optional[str] = Field("auto", description="Client identifier: 'web' | 'mobile' | 'auto'")
     mode: Optional[str] = Field("everyone", description="Target experience mode: everyone | farmer | researcher")
     requested_source: str = Field(default="auto", description="auto|imd|accuweather|open_meteo")
@@ -34,18 +39,21 @@ class ChatRequest(BaseModel):
         if not msg and not has_history:
             raise ValueError("Either 'message' or non-empty 'messages' must be provided")
 
-        if self.mode not in ("everyone", "farmer", "researcher"):
+        if "mode" not in self.model_fields_set or self.mode is None:
             self.mode = "farmer" if self.farmer_mode else "everyone"
-        elif self.farmer_mode and self.mode == "everyone":
-            self.mode = "farmer"
+        elif self.mode not in ("everyone", "farmer", "researcher"):
+            raise ValueError("mode must be everyone, farmer or researcher")
 
-        allowed = {"auto", "imd", "accuweather", "open_meteo", "open-meteo", "openmeteo"}
-        if self.requested_source and self.requested_source.lower() not in allowed:
-            self.requested_source = "auto"
+        self.farmer_mode = self.mode == "farmer"
+
+        self.requested_source = normalize_source(self.requested_source)
         return self
 
 class ChatMeta(BaseModel):
     path: str
+    intent: Optional[str] = None
+    intent_engine: Optional[str] = None
+    intent_confidence: Optional[float] = None
     client: str
     language: str
     location: Optional[str] = None
@@ -63,3 +71,12 @@ class SandboxRequest(BaseModel):
     language: str = Field("English", max_length=50)
 
 SourceKind = Literal["auto", "imd", "accuweather", "open_meteo"]
+
+
+def normalize_source(value: str) -> str:
+    source = value.strip().lower().replace("-", "_")
+    if source == "openmeteo":
+        source = "open_meteo"
+    if source not in ("auto", "imd", "accuweather", "open_meteo"):
+        raise ValueError(f"Unsupported forecast source: {value}")
+    return source

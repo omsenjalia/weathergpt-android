@@ -116,8 +116,8 @@ def create_app() -> FastAPI:
             "version": API_VERSION,
             "status": "ok",
             "clients": {
-                "mobile": {"repo": "weathergpt-app",
-                           "endpoints": ["/chat", "/weather", "/advisory", "/historical",
+                "mobile": {"repo": "weathergpt-android",
+                           "endpoints": ["/chat", "/weather", "/v2/weather", "/v2/weather/health", "/advisory", "/historical",
                                          "/comparison", "/fusion", "/health"]},
             },
             "provider_priority": {
