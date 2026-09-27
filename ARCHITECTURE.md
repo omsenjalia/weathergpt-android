@@ -686,9 +686,9 @@ Enable via **Profile → Developer → Developer mode → Debug & state** (`/deb
 **Controls (Profile → Developer)**:
 - Pin source: `DevSourcePin` auto/open_meteo/accuweather/imd — forces a provider and surfaces failures
 - `Show provenance on Home` restores the source/run/freshness chips on the home screen (developer mode only; provider names never render for regular users)
-- `Disable animated sky` switches to the gradient-only background (forced sky period/condition apply only in developer mode)
+- `Disable animated sky` switches to the gradient-only background
 
-Stored request options (hourly 1–168, forecast 1–15, supplement, disable-v2-fallback, log-requests) apply only with developer mode on and are shown in the Debug state.
+Stored options without a settings control (hourly 1–168, forecast 1–15, supplement, disable-v2-fallback, log-requests, forced sky period/condition) apply only with developer mode on and are shown in the Debug state.
 
 ---
 
