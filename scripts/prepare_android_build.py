@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate CI config before Flutter runs; never interpolate secrets into shell code."""
+"""Validate CI config before the Expo/Gradle build runs; never interpolate secrets into shell code."""
 import base64
 import binascii
 from datetime import datetime, timezone
@@ -34,7 +34,8 @@ def prepare(env, root, now=None):
     if release and not all(present):
         raise ValueError("Nightly releases require a stable release keystore; debug signing is CI-only.")
     mode = "signed" if all(present) else "debug-keys"
-    store = app / "android/app/release.keystore"
+    # Outside android/: `expo prebuild` owns that generated directory.
+    store = app / ".signing/release.keystore"
     if mode == "signed":
         try:
             data = base64.b64decode("".join(env["KEYSTORE_BASE64"].split()), validate=True)
@@ -51,16 +52,18 @@ def prepare(env, root, now=None):
     now = now or datetime.now(timezone.utc)
     # One versionCode scheme across CI and nightly, well below Android's 2.1B limit.
     build_number = int(now.timestamp()) - 1577836800  # seconds since 2020-01-01 UTC
-    (app / ".env").write_text(f"BACKEND_URL={url}\n")
+    # Expo inlines EXPO_PUBLIC_* values from app/.env at bundle time.
+    (app / ".env").write_text(f"EXPO_PUBLIC_BACKEND_URL={url}\n")
     sha = env.get("GITHUB_SHA", "local")
     artifact = f"weathergpt-{'release-signed' if mode == 'signed' else 'debug-signed'}-{sha}"
     if local_backend:
         artifact += "-local-backend"
     return {
         "SIGNING_MODE": mode,
-        "KEYSTORE_PATH": str(store.resolve()),  # Gradle file() is app-module-relative
-        "BUILD_NAME": f"1.0.0-nightly.{stamp}" if stamp else "1.0.0",
-        "BUILD_NUMBER": str(build_number),
+        "EXPO_PUBLIC_BACKEND_URL": url,
+        "KEYSTORE_PATH": str(store.resolve()),  # configure-android-release.cjs requires absolute
+        "APP_VERSION": f"1.0.0-nightly.{stamp}" if stamp else "1.0.0",
+        "ANDROID_VERSION_CODE": str(build_number),
     }, artifact
 
 

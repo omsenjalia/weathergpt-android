@@ -49,8 +49,9 @@ def test_weather_health_and_app_endpoint_inventory():
     assert data["check"] == "configuration_only"
     assert data["provider_priority"] == ["imd", "accuweather", "open_meteo"]
     assert data["provider_health"]["imd"]["implementation"] == "pending"
-    endpoints = Path(__file__).parents[2] / "app/lib/core/constants/api_endpoints.dart"
-    declared = re.findall(r"static const \w+ = '([^']+)'", endpoints.read_text())
+    endpoints = Path(__file__).parents[2] / "app/src/core/config/apiEndpoints.ts"
+    declared = re.findall(r'^\s+\w+: "([^"]+)",$', endpoints.read_text(), re.MULTILINE)
+    assert declared
     assert set(declared) <= set(app.openapi()["paths"])
 
 

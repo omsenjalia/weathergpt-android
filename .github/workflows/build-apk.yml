@@ -32,28 +32,31 @@ permissions:
 jobs:
   apk:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 60
     outputs:
       artifact_name: ${{ steps.prepare.outputs.artifact_name }}
     defaults:
       run:
         working-directory: app
+    env:
+      # Native code is the dominant build cost. CI/PR APKs target modern phones
+      # (arm64) only; nightlies add 32-bit ARM. x86/x86_64 are emulator-only.
+      ABIS: ${{ inputs.release && 'armeabi-v7a,arm64-v8a' || 'arm64-v8a' }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-node@v4
         with:
-          java-version: '17'
-          distribution: temurin
-          cache: gradle
-          cache-dependency-path: |
-            app/android/**/*.gradle.kts
-            app/android/gradle/wrapper/gradle-wrapper.properties
-      - uses: subosito/flutter-action@v2
+          node-version: '22'
+      - uses: oven-sh/setup-bun@v2
         with:
-          flutter-version: '3.44.0'
-          channel: stable
-          cache: true
-          pub-cache-key: flutter-pub-${{ runner.os }}-${{ hashFiles('app/pubspec.lock') }}
+          bun-version: '1.4.2'
+      - name: Cache Bun packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('app/bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
       - name: Configure backend and signing
         id: prepare
         env:
@@ -65,16 +68,77 @@ jobs:
           REQUIRE_RELEASE: ${{ inputs.release }}
           NIGHTLY_STAMP: ${{ inputs.stamp }}
         run: python ../scripts/prepare_android_build.py
-      - run: flutter pub get
-      - name: Build release-mode APK
+      - run: bun install --frozen-lockfile
+      # app.config.js reads APP_VERSION / ANDROID_VERSION_CODE here.
+      - name: Generate native Android project (expo prebuild)
+        run: |
+          bunx expo prebuild -p android --no-install
+          # More heap than the template's 2 GB, and Gradle's build cache on.
+          {
+            echo 'org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g'
+            echo 'org.gradle.caching=true'
+          } >> android/gradle.properties
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: temurin
+      # Caches the Gradle wrapper, dependencies, build cache and transforms.
+      # Only default-branch runs write; PR/branch runs reuse main's cache.
+      - uses: gradle/actions/setup-gradle@v4
+      # RN pins an NDK the runner image may not ship; without this AGP
+      # downloads ~1 GB on every run.
+      - name: Resolve NDK version
+        id: ndk
+        run: |
+          version=$(sed -n 's/^ndkVersion = "\(.*\)"/\1/p' node_modules/react-native/gradle/libs.versions.toml)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if [[ -d "$ANDROID_HOME/ndk/$version" ]]; then echo 'present=true' >> "$GITHUB_OUTPUT"; fi
+      - name: Cache NDK
+        if: steps.ndk.outputs.present != 'true'
+        id: ndk-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.ANDROID_HOME }}/ndk/${{ steps.ndk.outputs.version }}
+          key: ${{ runner.os }}-ndk-${{ steps.ndk.outputs.version }}
+      - name: Install NDK
+        if: steps.ndk.outputs.present != 'true' && steps.ndk-cache.outputs.cache-hit != 'true'
+        env:
+          NDK_VERSION: ${{ steps.ndk.outputs.version }}
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$NDK_VERSION" > /dev/null
+      # Compiler cache for the C++ in React Native libraries (reanimated,
+      # worklets, screens, …). CMake honours the *_COMPILER_LAUNCHER env vars.
+      - uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: ${{ runner.os }}-ccache-${{ env.ABIS }}
+          max-size: 2G
+      - name: Cache Metro transforms
+        uses: actions/cache@v4
+        with:
+          path: /tmp/metro-cache
+          key: ${{ runner.os }}-metro-${{ hashFiles('app/bun.lock') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-metro-${{ hashFiles('app/bun.lock') }}-
+      - name: Configure release signing (no debug-key fallback)
+        if: env.SIGNING_MODE == 'signed'
         env:
           KEYSTORE_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.KEYSTORE_PASSWORD || '' }}
           KEY_ALIAS: ${{ github.event_name != 'pull_request' && secrets.KEY_ALIAS || '' }}
           KEY_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.KEY_PASSWORD || '' }}
+        run: node scripts/configure-android-release.cjs
+      - name: Build release-mode APK
+        working-directory: app/android
+        env:
+          KEYSTORE_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.KEYSTORE_PASSWORD || '' }}
+          KEY_ALIAS: ${{ github.event_name != 'pull_request' && secrets.KEY_ALIAS || '' }}
+          KEY_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.KEY_PASSWORD || '' }}
+          CMAKE_C_COMPILER_LAUNCHER: ccache
+          CMAKE_CXX_COMPILER_LAUNCHER: ccache
+          CCACHE_BASEDIR: ${{ github.workspace }}
+          CCACHE_NOHASHDIR: 'true'
         run: |
-          flutter build apk --release \
-            --build-name="$BUILD_NAME" --build-number="$BUILD_NUMBER"
-          cp build/app/outputs/flutter-apk/app-release.apk release.apk
+          ./gradlew assembleRelease --no-daemon --build-cache -PreactNativeArchitectures="$ABIS"
+          cp app/build/outputs/apk/release/app-release.apk ../release.apk
+          ccache --show-stats || true
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.prepare.outputs.artifact_name }}
@@ -84,4 +148,4 @@ jobs:
       - name: Remove transient signing material
         if: always()
         run: |
-          rm -f android/app/release.keystore .env
+          rm -rf .signing .env

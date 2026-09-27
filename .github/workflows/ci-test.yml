@@ -40,8 +40,8 @@ jobs:
           path: backend/junit.xml
           if-no-files-found: ignore
 
-  flutter:
-    name: Flutter analysis and tests
+  app:
+    name: App typecheck, tests and bundle
     runs-on: ubuntu-latest
     timeout-minutes: 20
     defaults:
@@ -50,26 +50,37 @@ jobs:
         working-directory: app
     steps:
       - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
+      - uses: actions/setup-node@v4
         with:
-          flutter-version: '3.44.0'
-          channel: stable
-          cache: true
-          pub-cache-key: flutter-pub-${{ runner.os }}-${{ hashFiles('app/pubspec.lock') }}
+          node-version: '22'
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.2'
+      - name: Cache Bun packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('app/bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
       - name: Create non-secret test configuration
         run: cp .env.example .env
-      - run: flutter pub get
-      - name: Analyze
-        run: flutter analyze 2>&1 | tee analyze.txt
-      - name: Test
+      - run: bun install --frozen-lockfile
+      - name: Typecheck (tsc strict)
+        run: set -o pipefail; bun run typecheck 2>&1 | tee typecheck.txt
+      - name: Unit tests (vitest)
         if: success() || failure()
-        run: flutter test --reporter expanded --timeout 60s 2>&1 | tee test-output.txt
+        # `bun run test` runs `vitest run` with the RN/Expo aliases in
+        # vitest.config.ts; `bun test` would bypass them.
+        run: set -o pipefail; bun run test 2>&1 | tee test-output.txt
+      - name: Export Android bundle (catch Metro and native-module regressions)
+        run: bunx expo export --platform android --output-dir dist
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: flutter-test-results
+          name: app-test-results
           path: |
-            app/analyze.txt
+            app/typecheck.txt
             app/test-output.txt
           if-no-files-found: ignore
 
