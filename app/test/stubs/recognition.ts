@@ -4,6 +4,7 @@ export const ExpoSpeechRecognitionModule = {
   isRecognitionAvailable: vi.fn(() => true),
   requestPermissionsAsync: vi.fn(async () => ({ granted: true })),
   start: vi.fn(), stop: vi.fn(), abort: vi.fn(),
+  supportsRecording: vi.fn(() => true),
   addListener: vi.fn((name: string, handler: (event: any) => void) => {
     listeners.set(name, handler);
     return { remove: () => listeners.delete(name) };

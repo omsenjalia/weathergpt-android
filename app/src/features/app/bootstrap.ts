@@ -21,6 +21,7 @@ import { useSavedLocationsStore } from "../explore/exploreStores";
 import { useChatStore } from "../chat/chatStore";
 import { useVoiceStore } from "../voice/voiceStore";
 import { SkyScene, skyScene, useWeatherStore } from "../weather/weatherStore";
+import { SpeechService } from "../voice/speechService";
 
 /// Hydrates every persisted store and loads fonts. Resolves once; a failed
 /// font load falls back to the system font rather than blocking the app.
@@ -43,6 +44,8 @@ export function useAppReady(): boolean {
       useFarmProfileStore.getState().hydrate(),
       useSavedLocationsStore.getState().hydrate(),
     ]).finally(() => setHydrated(true));
+    // Non-blocking: speech stays on-device until the backend confirms Bhashini.
+    void SpeechService.probe();
   }, []);
 
   return hydrated && (fontsLoaded || fontError !== null);
@@ -56,6 +59,7 @@ export function useAgentContextSync(enabled: boolean): void {
   const userPersona = useSettingsStore((s) => s.userPersona);
   const ttsVoiceLocale = useSettingsStore((s) => s.ttsVoiceLocale);
   const ttsSpeed = useSettingsStore((s) => s.ttsSpeed);
+  const ttsGender = useSettingsStore((s) => s.ttsGender);
   const location = useLocationStore((s) => s.location);
   const profile = useFarmProfileStore((s) => s.profile);
   const profileCompleted = useFarmProfileStore((s) => s.completed);
@@ -65,8 +69,8 @@ export function useAgentContextSync(enabled: boolean): void {
     const persona = selectMode({ ...useSettingsStore.getState(), userPersona });
     const context = { language, userPersona: persona, location, profile, profileCompleted };
     useChatStore.getState().setContext(context);
-    useVoiceStore.getState().setContext({ ...context, ttsVoiceLocale, ttsSpeed });
-  }, [enabled, language, userPersona, ttsVoiceLocale, ttsSpeed, location, profile, profileCompleted]);
+    useVoiceStore.getState().setContext({ ...context, ttsVoiceLocale, ttsSpeed, ttsGender });
+  }, [enabled, language, userPersona, ttsVoiceLocale, ttsSpeed, ttsGender, location, profile, profileCompleted]);
 }
 
 /// Sky scene (period, condition, palette) from wall-clock time and the live

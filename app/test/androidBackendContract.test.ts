@@ -56,7 +56,6 @@ describe("weather request", () => {
 
   it("only declares endpoints this backend serves", () => {
     expect(Object.values(ApiEndpoints)).not.toContain("/v2/weather/catalog");
-    expect(Object.values(ApiEndpoints).some((p) => p.startsWith("/v2/speech"))).toBe(false);
   });
 });
 

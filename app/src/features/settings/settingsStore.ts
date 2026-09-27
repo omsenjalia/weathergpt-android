@@ -25,6 +25,8 @@ export interface SettingsState {
   units: TemperatureUnit;
   ttsVoiceLocale: string;
   ttsSpeed: number;
+  /// Bhashini voice ("female" | "male").
+  ttsGender: "female" | "male";
   /// Persisted voice choice per app language code ('en' -> selection).
   ttsVoices: Record<string, TtsVoiceSelection>;
   notificationsEnabled: Record<string, boolean>;
@@ -44,6 +46,7 @@ interface SettingsStore extends SettingsState {
   updatePersona: (persona: string) => Promise<void>;
   updateUnits: (units: TemperatureUnit) => Promise<void>;
   updateTtsSpeed: (speed: number) => Promise<void>;
+  updateTtsGender: (gender: "female" | "male") => Promise<void>;
   updateTtsVoiceLocale: (locale: string) => Promise<void>;
   updateTtsVoice: (langCode: string, selection: TtsVoiceSelection) => Promise<void>;
   clearTtsVoice: (langCode: string) => Promise<void>;
@@ -63,6 +66,7 @@ function persist(state: SettingsState): void {
     units: state.units,
     ttsVoiceLocale: state.ttsVoiceLocale,
     ttsSpeed: state.ttsSpeed,
+    ttsGender: state.ttsGender,
     ttsVoices: Object.fromEntries(
       Object.entries(state.ttsVoices).map(([k, v]) => [k, ttsSelectionToMap(v)]),
     ),
@@ -78,6 +82,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   units: TemperatureUnit.Celsius,
   ttsVoiceLocale: "en-US",
   ttsSpeed: 0.85,
+  ttsGender: "female",
   ttsVoices: {},
   notificationsEnabled: {
     weather_alerts: true,
@@ -112,6 +117,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
       units: raw?.["units"] === TemperatureUnit.Fahrenheit ? TemperatureUnit.Fahrenheit : TemperatureUnit.Celsius,
       ttsVoiceLocale: typeof raw?.["ttsVoiceLocale"] === "string" ? raw["ttsVoiceLocale"] as string : "en-US",
       ttsSpeed: typeof raw?.["ttsSpeed"] === "number" ? raw["ttsSpeed"] as number : 0.85,
+      ttsGender: raw?.["ttsGender"] === "male" ? "male" : "female",
       ttsVoices: voices,
       notificationsEnabled:
         raw && typeof raw["notificationsEnabled"] === "object" && raw["notificationsEnabled"] !== null
@@ -146,6 +152,11 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 
   updateTtsSpeed: async (speed) => {
     set({ ttsSpeed: Number.isFinite(speed) ? Math.min(1, Math.max(0.3, speed)) : 0.85 });
+    persist(get());
+  },
+
+  updateTtsGender: async (gender) => {
+    set({ ttsGender: gender === "male" ? "male" : "female" });
     persist(get());
   },
 
