@@ -6,7 +6,7 @@ import { useWeatherStore } from "../src/features/weather/weatherStore";
 import { requestLogOk, requestQueryString, useRequestLogStore } from "../src/core/services/requestLog";
 import { ApiEndpoints } from "../src/core/config/apiEndpoints";
 import { ApiClient } from "../src/core/services/apiClient";
-import { realFailures, skippedUnconfigured, weatherNextFailed } from "../src/core/models/dataProvenance";
+import { realFailures, skippedUnconfigured } from "../src/core/models/dataProvenance";
 import { fieldSourcesContributors } from "../src/core/models/fieldSources";
 
 type Tab = "snapshot" | "sources" | "providers" | "requests" | "health";
@@ -104,7 +104,6 @@ export default function DebugScreen(): React.ReactElement {
                 ["Missing fields", snapshot.provenance.missingFields.join(", ") || "none"],
                 ["Policy version", snapshot.provenance.selectionPolicyVersion ?? "—"],
                 ["Freshness", snapshot.provenance.freshnessStatus ?? "—"],
-                ["WeatherNext failed", snapshot.provenance.fallbackReasons.length > 0 ? String(weatherNextFailed(snapshot.provenance)) : "—"],
               ]}
             />
           )}
