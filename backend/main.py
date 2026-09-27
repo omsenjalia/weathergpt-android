@@ -9,7 +9,7 @@ Layout
     state.py           uptime + recent-log ring buffer
     services/          open_meteo (baseline), fusion, forecast (IMD->AccuWeather->Open-Meteo),
                        config, chat, advisory
-    routers/           chat, mobile, dev
+    routers/           chat, mobile, dev, speech (Bhashini TTS/ASR)
     agent.py, tools.py LangGraph agent + telemetry tools
 
 Run locally:  uvicorn main:app --host 0.0.0.0 --port 8888
@@ -32,6 +32,7 @@ from routers import chat as chat_router  # noqa: E402
 from routers import dev as dev_router  # noqa: E402
 from routers import mobile as mobile_router
 from routers import weather_v2 as weather_v2_router  # noqa: E402
+from routers import speech as speech_router  # noqa: E402
 from state import log_event  # noqa: E402
 from services.config import get_config  # noqa: E402
 
@@ -106,6 +107,7 @@ def create_app() -> FastAPI:
     app.include_router(mobile_router.router)
     app.include_router(weather_v2_router.router)
     app.include_router(dev_router.router)
+    app.include_router(speech_router.router)
 
     @app.get("/", tags=["meta"])
     async def root():
@@ -118,7 +120,8 @@ def create_app() -> FastAPI:
             "clients": {
                 "mobile": {"repo": "weathergpt-android",
                            "endpoints": ["/chat", "/weather", "/v2/weather", "/v2/weather/health", "/advisory", "/historical",
-                                         "/comparison", "/fusion", "/health"]},
+                                         "/comparison", "/fusion", "/health",
+                                         "/v2/speech/tts", "/v2/speech/asr", "/v2/speech/health"]},
             },
             "provider_priority": {
                 "current": [p.value for p in cfg.provider_priority],

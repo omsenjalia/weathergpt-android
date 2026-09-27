@@ -36,6 +36,12 @@
             "usesCleartextTraffic": true
           }
         }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "WeatherGPT uses the microphone so you can ask weather questions by voice."
+        }
       ]
     ],
     "experiments": {

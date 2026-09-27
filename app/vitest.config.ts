@@ -18,6 +18,8 @@ export default defineConfig({
       "expo-speech": path.resolve(__dirname, "test/stubs/speech.ts"),
       "expo-location": path.resolve(__dirname, "test/stubs/location.ts"),
       "expo-speech-recognition": path.resolve(__dirname, "test/stubs/recognition.ts"),
+      "expo-audio": path.resolve(__dirname, "test/stubs/audio.ts"),
+      "expo-file-system": path.resolve(__dirname, "test/stubs/fileSystem.ts"),
     },
   },
   define: {

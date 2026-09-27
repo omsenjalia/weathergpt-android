@@ -15,4 +15,9 @@ export const ApiEndpoints = {
   // Versioned weather facade and configuration health
   v2Weather: "/v2/weather",
   v2WeatherHealth: "/v2/weather/health",
+
+  // Bhashini speech (backend proxies MeitY ULCA; keys stay server-side)
+  speechHealth: "/v2/speech/health",
+  speechTts: "/v2/speech/tts",
+  speechAsr: "/v2/speech/asr",
 } as const;

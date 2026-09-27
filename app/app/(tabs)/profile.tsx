@@ -10,6 +10,7 @@ import { TemperatureUnit, useSettingsStore } from "../../src/features/settings/s
 import { DEV_SOURCE_PIN_LABEL, DevSourcePin, useDeveloperOptionsStore } from "../../src/features/settings/developerOptionsStore";
 import { useSavedLocationsStore } from "../../src/features/explore/exploreStores";
 import { useVoiceStore, VoiceStatus } from "../../src/features/voice/voiceStore";
+import { SpeechService } from "../../src/features/voice/speechService";
 
 const PERSONAS: ReadonlyArray<{ id: "everyone" | "farmer" | "researcher"; icon: IconName; color: string }> = [
   { id: "everyone", icon: "account-outline", color: Colors.accent },
@@ -37,7 +38,9 @@ export default function SettingsScreen(): React.ReactElement {
   const sourcePin = useDeveloperOptionsStore((s) => s.sourcePin);
   const showProvenance = useDeveloperOptionsStore((s) => s.showProvenanceOnHome);
   const animationOff = useDeveloperOptionsStore((s) => s.disableAnimatedSky);
+  const ttsGender = useSettingsStore((s) => s.ttsGender);
   const previewing = useVoiceStore((s) => s.status === VoiceStatus.Speaking);
+  const speechEngine = SpeechService.available();
   const settings = useSettingsStore.getState;
   const dev = useDeveloperOptionsStore.getState;
 
@@ -108,10 +111,20 @@ export default function SettingsScreen(): React.ReactElement {
         </Card>
       </Section>
 
-      <Section title={t("settings.voice_title")} footer={t("settings.voice_engine_device")}>
+      <Section title={t("settings.voice_title")} footer={speechEngine ? t("settings.voice_engine_bhashini") : t("settings.voice_engine_device")}>
         <Card style={styles.gap}>
           <AppText variant="callout">{t("voice_picker.title")}</AppText>
           <View style={styles.voiceRow}>
+            <View style={styles.flex}>
+              <SegmentedControl<"female" | "male">
+                value={ttsGender}
+                onChange={(g) => void settings().updateTtsGender(g)}
+                segments={[
+                  { value: "female", label: t("settings.voice_female") },
+                  { value: "male", label: t("settings.voice_male") },
+                ]}
+              />
+            </View>
             <Button
               label={previewing ? t("voice_picker.stop") : t("voice_picker.preview")}
               icon={previewing ? "stop" : "play"}
