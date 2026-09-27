@@ -3,7 +3,7 @@
 _The filename is retained for existing links. This repository has no web frontend._
 
 Backend root: `backend/main.py`; Vercel root directory: `backend/`.
-Client base URL: `app/.env` or `--dart-define=BACKEND_URL`.
+Client base URL: `EXPO_PUBLIC_BACKEND_URL` in the environment or `app/.env`.
 See [data contracts](app_data_contracts.md) for response semantics.
 
 | Method | Path | Required input | Notes |
@@ -34,4 +34,4 @@ WeatherNext tools/routes, decision-platform routes, official-alert ingestion.
 Do not copy the sibling backend's OpenAPI expectations into this app unchanged.
 
 `backend/tests/test_mobile_contract.py` checks that every path declared by the
-Flutter `ApiEndpoints` class exists in this backend's OpenAPI schema.
+client `ApiEndpoints` object (`src/core/config/apiEndpoints.ts`) exists in this backend's OpenAPI schema.

@@ -2,21 +2,21 @@
 
 ## 1. Scope and capability boundaries
 
-WeatherGPT is a Flutter Android client and a Python FastAPI backend in **one Git
+WeatherGPT is a React Native (Expo) Android client and a Python FastAPI backend in **one Git
 repository**. It provides weather, chat/voice, farm action windows and yearly
 historical charts. A persona changes presentation and request context; it is not
 an authorization role.
 
 | Capability | What this repository implements |
 |---|---|
-| Android client | Everyone, Farmer and Researcher personas; Material 3 UI |
+| Android client | Everyone, Farmer and Researcher personas; Expo Router tabs and shared design system |
 | Weather | Open-Meteo keyless baseline; optional AccuWeather current/daily adapter; source provenance |
 | IMD | Adapter scaffold only. Credentials do **not** enable a working forecast or official-alert feed |
 | Chat | Keyword intent routing; deterministic telemetry; optional Groq/LangGraph tool-calling agent |
 | Farm advisory | Server-side weather thresholds and hourly activity bands, **not** Jev/TypeSafe decisions |
 | Research | Yearly Open-Meteo archive series, returned-window deviations, saved-location comparison |
-| Voice and translation | Nine translation catalogs; device STT/TTS, subject to installed engines/language support |
-| Backgrounds | Animated custom-painted skies and gradients; **no MP4/video_player dependency** |
+| Voice and translation | Nine translation catalogs; device STT/TTS only (no server speech proxy), subject to installed engines/language support |
+| Backgrounds | Gradient skies with animated rain/star/lightning particles; **no bundled video or expo-video dependency** |
 | Diagnostics | Request log, provider/source inspection, configuration health and developer settings |
 
 Not implemented here: iOS runner/builds; WeatherNext/BigQuery/GCS/Earth Engine;
@@ -29,13 +29,13 @@ richer sibling-backend payloads; their existence does not enable those services.
 
 ```mermaid
 flowchart TB
-  subgraph Android["app/ · Flutter Android"]
-    UI["Screens · Material 3 · atmospheric painter"]
-    Router["GoRouter · onboarding and persona navigation"]
-    State["Riverpod · weather, chat, farm, research, voice"]
-    Store["Hive · settings, farm_profile, saved_locations"]
-    HTTP["Dio ApiClient · Accept-Language · request log"]
-    Voice["Android STT / TTS"]
+  subgraph Android["app/ · React Native (Expo) Android"]
+    UI["Screens · design system · sky gradient + particles"]
+    Router["expo-router · onboarding and persona navigation"]
+    State["Zustand stores · weather, chat, farm, research, voice"]
+    Store["AsyncStorage · settings, farm profile, saved locations"]
+    HTTP["fetch ApiClient · Accept-Language · request log"]
+    Voice["expo-speech-recognition / expo-speech"]
     External["Windy WebView · direct geocoding"]
     UI --> Router --> State --> HTTP
     State <--> Store
@@ -67,7 +67,7 @@ flowchart TB
 ```
 
 The client also contacts Open-Meteo geocoding and BigDataCloud reverse-geocoding
-directly (`geocoding_service.dart`). Windy content loads in its own WebView.
+directly (`src/core/services/geocodingService.ts`). Windy content loads in its own WebView.
 Weather/provider/LLM keys must never be shipped to these client surfaces.
 
 ## 3. Repository and stack
@@ -76,13 +76,14 @@ Weather/provider/LLM keys must never be shipped to these client surfaces.
 .github/workflows/        Tests, APK builds, nightly release orchestration
 scripts/                 Validated CI config/signing preparation and unit tests
 app/
-  android/               Native runner, manifest, Gradle and signing
-  assets/translations/   bn en gu hi kn ml mr ta te JSON catalogs
-  lib/core/              API, request context, localization, theme, shared widgets
-  lib/features/          home/chat/explore/farmer/researcher/onboarding/settings/voice
-  lib/models/            Weather/location parsers and nullable data models
-  lib/router/            GoRouter route graph
-  test/                  Unit/widget tests and shared backend response fixture
+  app/                   expo-router routes: onboarding, (tabs)/, voice, debug, farm profile
+  src/core/              Config, errors, models, API client, request log, theme, utils
+  src/features/          weather/chat/explore/farm/research/onboarding/settings/voice stores
+  src/i18n/              bn en gu hi kn ml mr ta te JSON catalogs and typed engine
+  src/ui/                Design tokens, primitives, charts, rich text, sky shell
+  src/models/            Location models and presets
+  test/                  Vitest unit tests, native-module stubs, backend response fixture
+  scripts/               Release-signing patch applied after `expo prebuild`; push helper
   docs/                  Android contracts and historical research notes
 backend/
   main.py                App factory, CORS, request IDs/logging, router registration
@@ -95,28 +96,27 @@ backend/
   tests/                 Offline route/service/contract regressions
 ```
 
-- **Toolchain:** CI pins Flutter **3.44.0** (Dart **3.12+**), Java **17**, Python
-  **3.11**. Android settings currently specify AGP **9.0.1**, Kotlin **2.3.20** and
-  Gradle **9.1.0**, aligned to the Flutter 3.44.0 template. Flutter applies the
-  Kotlin plugin through its compatibility layer while built-in Kotlin is disabled. Android compilation remains a required CI/device verification step.
-- **Client:** Riverpod 2, GoRouter 14, Dio 5, Hive, easy_localization, fl_chart,
-  gpt_markdown, speech_to_text, flutter_tts, webview_flutter, geolocator.
+- **Toolchain:** CI pins Node **22**, Bun **1.4.2**, Java **17**, Python **3.11**.
+  The native `android/` project is generated by `expo prebuild` (Continuous Native
+  Generation) and is not tracked; permissions, cleartext policy and package ID
+  come from `app/app.json`. Android compilation remains a required CI/device step.
+- **Client:** Expo SDK 54, React Native 0.81, TypeScript 5.9 (strict), expo-router 6,
+  Zustand 5, AsyncStorage, react-native-svg charts, expo-speech,
+  expo-speech-recognition, react-native-webview, expo-location.
 - **Backend:** FastAPI 0.115.0, Uvicorn 0.30.6, LangGraph 0.2.28,
   langchain-groq 0.2.0, langchain-core 0.3.0, httpx 0.27.2, Pydantic.
-- `pubspec.yaml` declares constraints and `pubspec.lock` records a prior solve.
-  The inherited lock contains speech_to_text 6.6.2 despite the manifest's ^7.4.0;
-  `flutter pub get` must resolve this before analysis/build. Do not describe that
-  lock as a freshly verified reproducible dependency set; see validation report.
+- `app/package.json` declares dependencies and `app/bun.lock` pins the solve;
+  CI installs with `bun install --frozen-lockfile`.
 
 ## 4. Configuration and trust boundary
 
 ### Client
 
-`resolveBackendUrl` resolves **`--dart-define=BACKEND_URL` → `app/.env` → emulator
-`http://10.0.2.2:8888`**. No implicit connection to the sibling app's production
-host. A real phone needs a reachable LAN address or a deployed HTTPS backend.
+`resolveBackendUrl` resolves **`EXPO_PUBLIC_BACKEND_URL` (environment or `app/.env`)
+→ emulator `http://10.0.2.2:8888`**. There is no implicit hosted-backend default.
+A real phone needs a reachable LAN address or a deployed HTTPS backend.
 
-`app/.env` is a Flutter **asset**, readable from the APK. It may contain only a
+`EXPO_PUBLIC_*` values are **inlined into the JS bundle**, readable from the APK. It may contain only a
 public backend URL. Never put Groq/provider keys, passwords or OAuth credentials
 there. Android permits cleartext traffic for local development; use HTTPS for
 releases and consider a release-only network-security restriction before public
@@ -144,19 +144,19 @@ variables, not the app bundle or repository.
 
 ## 5. Client lifecycle, state and navigation
 
-1. Initialize Flutter bindings/localization, load `.env`, open Hive boxes.
-2. Restore saved language; synchronize Dio's `Accept-Language` header.
-3. Mount `ProviderScope` and `MaterialApp.router`.
-4. GoRouter redirects a new user through splash/language/persona onboarding.
+1. The root layout hydrates every persisted store from AsyncStorage and loads fonts.
+2. Restore saved language; the API client sends it as `Accept-Language`.
+3. Chat/voice request context is kept in sync with settings, location and farm profile.
+4. The index route redirects a new user through language/persona onboarding.
    Farmer onboarding additionally offers a form or a scripted local STT/TTS
    conversation; both save the same farm profile.
-5. Shell routes provide home, chat, explore, persona hub and profile. Separate
+5. Tab routes provide home, chat, explore, farm/lab persona hub and profile. Separate
    routes provide saved locations, action windows, historical/trend/comparison
    screens, debug state and voice selection/results.
 
 Weather observes location, persona and developer options. Chat and voice share
 `AgentRequestContext` and attach farm details only for Farmer requests. Settings,
-farm profile and saved places persist in Hive; they are not encrypted secret
+farm profile and saved places persist in AsyncStorage; they are not encrypted secret
 stores. Chat state is in memory. The advisory client caches by location/profile
 and day, invalidating stale context; failure is explicit rather than an invented
 safe-action forecast.
@@ -177,12 +177,12 @@ safe-action forecast.
 6. The response contains flat current fields, `hourly`, `forecast`, `location`,
    `selected_source`, `requested_source`, provenance and field attribution. This
    Android v2 facade is **not** the sibling's full WeatherNext v2 API.
-7. Flutter's v2 parser understands this flat shape. An automatic-source v2 error
+7. The client's v2 parser understands this flat shape. An automatic-source v2 error
    may retry `/weather`; pinned requests never silently substitute a legacy call.
 
 Default display horizons are **48 hours / 7 days**, capped by actual provider
 coverage. The API accepts 1–168 hourly rows and 1–16 daily rows; UI developer
-settings currently offer 6–168 hours and 1–15 days. The returned rows can be fewer.
+settings currently accept 1–168 hours and 1–15 days. The returned rows can be fewer.
 Total provider failure returns HTTP **502** with an unavailable detail, not a
 synthetic sunny/zero-rain snapshot. WMO `0` is clear sky, not missing data.
 
@@ -211,7 +211,7 @@ See [Android data contracts](app/docs/app_data_contracts.md) and
 | `POST /dev/sandbox` | Agent diagnostics; potentially billable if Groq enabled |
 
 There is no `/voice` backend endpoint: STT produces text for `/chat`, and TTS reads
-its answer. No `/v2/weather/catalog` or `/v2/weather/series` route is advertised.
+its answer. No `/v2/weather/catalog`, `/v2/weather/series` or `/v2/speech/*` route is advertised.
 
 ## 8. Chat, language and widgets
 
@@ -229,7 +229,7 @@ are not WeatherNext or external decision-platform tools. Explicit chat source
 pins use the constrained deterministic path rather than unconstrained LLM tools.
 
 `response.py` strips reasoning markup and sanitizes structured widget fences;
-Flutter renders supported cards and normal Markdown. Voice additionally removes
+The client renders supported cards and normal Markdown. Voice additionally removes
 markup unsuitable for speech. Nine UI catalogs are shipped (bn/en/gu/hi/kn/ml/mr/
 ta/te); runtime STT/TTS depends on the device. Some deterministic server replies
 and developer labels remain English, so nine catalogs do **not** imply fully
@@ -262,8 +262,8 @@ separately, then set the public APK `BACKEND_URL` to that deployment.
 ```mermaid
 flowchart LR
   PR["PR / push / manual"] --> CI["ci-build-signed.yml"]
-  CI --> Tests["ci-test.yml · Python + Flutter + workflow checks"]
-  Tests --> APK["build-apk.yml · Java 17 / Flutter / Gradle"]
+  CI --> Tests["ci-test.yml · Python + TypeScript/Vitest + workflow checks"]
+  Tests --> APK["build-apk.yml · Bun / expo prebuild / Java 17 Gradle"]
   APK --> Artifact["release.apk Actions artifact"]
   Schedule["18:30 UTC daily / manual default branch"] --> Gate["new commits? · nightly-release.yml"]
   Gate --> Tests
@@ -279,8 +279,10 @@ flowchart LR
 - Nightly publication requires a deployed HTTPS URL and **all four** signing
   secrets: `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`.
   Partial credentials fail; signed mode never silently downgrades to debug keys.
-- CI writes an **absolute** `KEYSTORE_PATH`, avoiding Gradle module-relative path
-  mistakes. Transient keystore files and `.env` are removed after builds.
+- CI writes an **absolute** `KEYSTORE_PATH` outside the generated `android/`
+  directory; `app/scripts/configure-android-release.cjs` then swaps the prebuilt
+  release signing config to read credentials from the environment (never written
+  to Gradle files). Transient keystore files and `.env` are removed after builds.
 - CI and nightly version codes share a seconds-since-2020 scheme (no independent
   workflow run-number collisions). Nightly tags use UTC `nightly-YYYYMMDD`, target
   the tested commit and are prereleases. An existing date/tag is not overwritten.
@@ -289,13 +291,13 @@ flowchart LR
   upgrade identity; nightly uses the stable release key.
 
 There is no backend submodule or two-repository push ceremony. Use ordinary Git
-from the repository root. The inherited `app/scripts/push-all.sh` now prints safe
-monorepo guidance and does not auto-commit or push unrelated files.
+from the repository root. `app/scripts/push-all.sh` prints safe monorepo guidance
+and does not auto-commit or push unrelated files.
 
 ## 11. Verification and operational limits
 
-Executable checks and outstanding device/deployment checks are recorded in
-[the audit report](docs/REPOSITORY_COMPARISON.md#verification).
+Outstanding device/deployment checks are recorded in the
+[device QA checklist](app/docs/qa_notes.md).
 
 Before public production exposure, add authentication/access control for
 billable diagnostics, rate limiting, request/resource limits, dependency/security

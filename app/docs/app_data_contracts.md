@@ -8,8 +8,8 @@ WeatherNext/TypeSafe contract is **not** the contract deployed from this checkou
 
 ## Configuration and persona context
 
-- The only bundled `.env` setting is the public `BACKEND_URL`.
-- Resolution: Dart define → `.env` → `http://10.0.2.2:8888` (Android emulator).
+- The only bundled `.env` setting is the public `EXPO_PUBLIC_BACKEND_URL`.
+- Resolution: `EXPO_PUBLIC_BACKEND_URL` (environment or `.env`) → `http://10.0.2.2:8888` (Android emulator).
 - Modes: `everyone`, `farmer`, `researcher`. Explicit mode is authoritative;
   otherwise the legacy `farmer_mode` boolean may select Farmer.
 - Chat and voice use `AgentRequestContext` to attach `crop`, `growth_stage`,
@@ -50,7 +50,7 @@ as `/weather`. Example (abbreviated):
 
 The real offline response fixture is
 [`test/fixtures/weather_android.json`](../test/fixtures/weather_android.json).
-Python tests compare its wire fields; a Dart parser test consumes the same file.
+Python tests compare its wire fields; a Vitest parser test consumes the same file.
 It is test data, not a live forecast.
 
 `parseWeatherSnapshotV2` accepts this flat shape and the richer sibling shape for
@@ -89,7 +89,8 @@ richer compatibility payloads must not be interpreted as evidence of installed
 WeatherNext/decision tools.
 
 Voice recognition is on-device/plugin-provided. It posts recognized text to
-`/chat` and uses `flutter_tts` to read speech-cleaned output. There is no backend
+`/chat` and uses `expo-speech` to read speech-cleaned output. There is no
+server-side speech proxy (`/v2/speech/*`). There is no backend
 `/voice` endpoint. Farmer voice onboarding is a separate scripted, local flow.
 
 ## Farm action windows

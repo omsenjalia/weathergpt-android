@@ -25,8 +25,8 @@ class AndroidBuildTests(unittest.TestCase):
         values, artifact = self.prepare()
         self.assertEqual(values["SIGNING_MODE"], "debug-keys")
         self.assertIn("local-backend", artifact)
-        self.assertIn("10.0.2.2", (self.root / "app/.env").read_text())
-        self.assertLess(int(values["BUILD_NUMBER"]), 2100000000)
+        self.assertEqual((self.root / "app/.env").read_text(), "EXPO_PUBLIC_BACKEND_URL=http://10.0.2.2:8888\n")
+        self.assertLess(int(values["ANDROID_VERSION_CODE"]), 2100000000)
 
     def test_release_requires_url_and_all_credentials(self):
         for env in ({}, {"BACKEND_URL": "https://weather.example.com"},
@@ -47,7 +47,7 @@ class AndroidBuildTests(unittest.TestCase):
             KEYSTORE_PASSWORD="x", KEY_ALIAS="x", KEY_PASSWORD="x", NIGHTLY_STAMP="20260926",
         )
         self.assertEqual(values["SIGNING_MODE"], "signed")
-        self.assertEqual(values["BUILD_NAME"], "1.0.0-nightly.20260926")
+        self.assertEqual(values["APP_VERSION"], "1.0.0-nightly.20260926")
         self.assertIn("release-signed", artifact)
         store = Path(values["KEYSTORE_PATH"])
         self.assertTrue(store.is_absolute())
