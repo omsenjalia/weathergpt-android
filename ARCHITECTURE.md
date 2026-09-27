@@ -717,6 +717,10 @@ graph LR
 - PRs and pushes run tests, then the APK build. PR builds never receive keystore
   credentials; builds without secrets are labeled **debug-signed** (plus
   `local-backend` without a URL) development artifacts.
+- Build caching: Bun packages, Gradle (wrapper, dependencies, build cache via
+  `setup-gradle`; written only by default-branch runs), the pinned NDK, ccache for
+  native C++, and Metro transforms. PR/CI APKs build **arm64-v8a** only; nightlies
+  build `armeabi-v7a,arm64-v8a` (no emulator-only x86 ABIs).
 - Nightly runs at **18:30 UTC / 00:00 IST** on the default branch when there are
   commits in the last 24 hours; manual dispatch bypasses only the activity gate.
 - Stable release signing requires `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`,

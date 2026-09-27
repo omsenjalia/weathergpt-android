@@ -31,7 +31,8 @@ Nightlies are **prereleases** and require the `BACKEND_URL` repository variable
 **CI Build APK** also produces a release-mode APK artifact for every PR and push.
 Without signing secrets it is clearly labeled **debug-signed** (and
 `local-backend` when no backend URL is configured): a developer build, not a
-distributable release.
+distributable release. CI APKs are **arm64-v8a** only (modern phones); nightlies
+also include 32-bit ARM.
 
 ### 🔧 Method 2: Build Locally (Android)
 
