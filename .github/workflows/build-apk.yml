@@ -116,7 +116,8 @@ jobs:
       # worklets, screens, …). CMake honours the *_COMPILER_LAUNCHER env vars.
       - uses: hendrikmuhs/ccache-action@v1.2
         with:
-          key: ${{ runner.os }}-ccache-${{ env.ABIS }}
+          # Cache keys may not contain commas, and release builds list two ABIs.
+          key: ${{ runner.os }}-ccache-${{ inputs.release && 'release' || 'arm64' }}
           max-size: 2G
       - name: Cache Metro transforms
         uses: actions/cache@v4
