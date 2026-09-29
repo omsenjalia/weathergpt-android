@@ -35,51 +35,52 @@ export function FloatingTabBar({ state, navigation, specs, visible, voiceLabel }
 
   const activeName = state.routes[state.index]?.name;
   const middle = Math.ceil(visible.length / 2);
+  // Six tabs (Researcher) leave ~45dp per item on a 360dp phone.
+  const dense = visible.length >= 6;
 
+  const renderTab = (name: string): React.ReactElement | null => {
+    const route = state.routes.find((r) => r.name === name);
+    const spec = specs[name];
+    if (route === undefined || spec === undefined) return null;
+    const focused = name === activeName;
+    return (
+      <Touchable
+        key={route.key}
+        scale={false}
+        haptics={focused ? "none" : "selection"}
+        accessibilityRole="tab"
+        accessibilityState={{ selected: focused }}
+        accessibilityLabel={spec.label}
+        onPress={() => {
+          const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
+          if (!focused && !event.defaultPrevented) navigation.navigate(route.name, route.params);
+        }}
+        onLongPress={() => navigation.emit({ type: "tabLongPress", target: route.key })}
+        style={styles.item}
+      >
+        <View style={[styles.iconPill, focused && styles.iconPillActive]}>
+          <Icon name={focused ? spec.activeIcon : spec.icon} size={22} color={focused ? Colors.onAccent : Colors.textSecondary} />
+        </View>
+        <AppText variant="caption" tone={focused ? "primary" : "tertiary"} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={[styles.label, dense && styles.labelDense]}>
+          {spec.label}
+        </AppText>
+      </Touchable>
+    );
+  };
+
+  // Two equal-width groups keep the voice orb centred even when the persona
+  // adds a fifth tab (Farm / Lab), and items shrink instead of overlapping it.
   return (
-    <View pointerEvents="box-none" style={[styles.wrap, { paddingBottom: Math.max(insets.bottom, Space.md) }]}>
+    <View pointerEvents="box-none" style={[styles.wrap, dense && styles.wrapDense, { paddingBottom: Math.max(insets.bottom, Space.md) }]}>
       <View style={styles.bar} accessibilityRole="tablist">
-        {visible.map((name, index) => {
-          const route = state.routes.find((r) => r.name === name);
-          const spec = specs[name];
-          if (route === undefined || spec === undefined) return null;
-          const focused = name === activeName;
-          const tab = (
-            <Touchable
-              key={route.key}
-              scale={false}
-              haptics={focused ? "none" : "selection"}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: focused }}
-              accessibilityLabel={spec.label}
-              onPress={() => {
-                const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
-                if (!focused && !event.defaultPrevented) navigation.navigate(route.name, route.params);
-              }}
-              onLongPress={() => navigation.emit({ type: "tabLongPress", target: route.key })}
-              style={styles.item}
-            >
-              <View style={[styles.iconPill, focused && styles.iconPillActive]}>
-                <Icon name={focused ? spec.activeIcon : spec.icon} size={22} color={focused ? Colors.onAccent : Colors.textSecondary} />
-              </View>
-              <AppText variant="caption" tone={focused ? "primary" : "tertiary"} numberOfLines={1}>
-                {spec.label}
-              </AppText>
-            </Touchable>
-          );
-          if (index !== middle) return tab;
-          // Voice-first: the assistant is one tap away from every tab.
-          return (
-            <React.Fragment key={route.key}>
-              <View style={styles.voiceSlot}>
-                <View style={styles.voiceLift}>
-                  <VoiceOrb size={58} ambient={false} accessibilityLabel={voiceLabel} onPress={() => router.push("/voice")} />
-                </View>
-              </View>
-              {tab}
-            </React.Fragment>
-          );
-        })}
+        <View style={styles.group}>{visible.slice(0, middle).map(renderTab)}</View>
+        {/* Voice-first: the assistant is one tap away from every tab. */}
+        <View style={styles.voiceSlot}>
+          <View style={styles.voiceLift}>
+            <VoiceOrb size={58} ambient={false} accessibilityLabel={voiceLabel} onPress={() => router.push("/voice")} />
+          </View>
+        </View>
+        <View style={styles.group}>{visible.slice(middle).map(renderTab)}</View>
       </View>
     </View>
   );
@@ -93,6 +94,9 @@ const styles = StyleSheet.create({
     bottom: 0,
     alignItems: "center",
     paddingHorizontal: Space.lg,
+  },
+  wrapDense: {
+    paddingHorizontal: Space.sm,
   },
   bar: {
     flexDirection: "row",
@@ -111,8 +115,13 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 10 },
     elevation: 12,
   },
+  group: {
+    flex: 1,
+    flexDirection: "row",
+  },
   item: {
     flex: 1,
+    minWidth: 0,
     alignItems: "center",
     justifyContent: "center",
     gap: 3,
@@ -129,11 +138,21 @@ const styles = StyleSheet.create({
     borderColor: "rgba(8, 13, 26, 0.9)",
   },
   iconPill: {
-    width: 52,
+    width: "100%",
+    maxWidth: 52,
     height: 30,
     borderRadius: Radius.pill,
     alignItems: "center",
     justifyContent: "center",
+  },
+  label: {
+    maxWidth: "100%",
+    paddingHorizontal: 2,
+  },
+  labelDense: {
+    fontSize: 10,
+    letterSpacing: 0,
+    paddingHorizontal: 0,
   },
   iconPillActive: {
     backgroundColor: Colors.accent,

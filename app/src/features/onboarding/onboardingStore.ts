@@ -60,6 +60,7 @@ function flattenSettings(): Record<string, unknown> {
     units: settings.units,
     ttsVoiceLocale: settings.ttsVoiceLocale,
     ttsSpeed: settings.ttsSpeed,
+    ttsGender: settings.ttsGender,
     ttsVoices: {},
     notificationsEnabled: settings.notificationsEnabled,
   };

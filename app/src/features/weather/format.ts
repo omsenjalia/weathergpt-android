@@ -203,3 +203,17 @@ export function compassLabel(deg: number | null | undefined): string {
   const dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
   return dirs[Math.round((((deg % 360) + 360) % 360) / 45) % 8]!;
 }
+
+/// Human name for a backend provider id (`imd` → "IMD").
+export function providerLabel(id: string | null | undefined): string | null {
+  if (id == null || id.trim() === "") return null;
+  switch (id.trim().toLowerCase().replaceAll("-", "_")) {
+    case "imd":
+      return "IMD";
+    case "open_meteo":
+    case "openmeteo":
+      return "Open-Meteo";
+    default:
+      return id;
+  }
+}

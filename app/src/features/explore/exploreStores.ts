@@ -144,10 +144,3 @@ export const useMapStore = create<MapStore>((set, get) => ({
 export function windyEmbedUrl(state: MapState): string {
   return `https://embed.windy.com/embed2.html?lat=${state.lat}&lon=${state.lon}&detailLat=${state.lat}&detailLon=${state.lon}&zoom=${state.zoom}&product=${state.product}&level=surface&overlay=${state.activeLayer}&menu=${state.showMenu === true ? "true" : ""}&message=true&marker=${state.showMarker === false ? "" : "true"}&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=default&metricTemp=default&radarRange=-1`;
 }
-
-/// Google DeepMind Weather Lab (WeatherNext) centred on the map position.
-/// It needs a Google sign-in, so the app opens it in the system browser.
-export function weatherLabUrl(state: Pick<MapState, "lat" | "lon" | "zoom">): string {
-  const zoom = (Math.min(Math.max(state.zoom, 3), 12) * 0.85).toFixed(2);
-  return `https://deepmind.google.com/science/weatherlab?cyclones_enabled=false&weather_enabled=true&weather_model=weathernext3&weather_layers=total_precipitation_1hr_mean&zoom=${zoom}&center=${state.lat},${state.lon}`;
-}

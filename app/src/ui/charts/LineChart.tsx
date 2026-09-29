@@ -13,6 +13,8 @@ export interface ChartSeries {
   points: Array<{ x: number; value: number }>;
   color: string;
   label?: string;
+  /// Thin, translucent line with no markers, e.g. an ensemble percentile.
+  muted?: boolean;
 }
 
 interface LineChartProps {
@@ -21,11 +23,13 @@ interface LineChartProps {
   unit?: string;
   emptyLabel?: string;
   accessibilityLabel?: string;
+  /// First/last x-axis labels; defaults to the truncated x value (years).
+  formatX?: (x: number) => string;
 }
 
 const PAD = { left: 40, right: 12, top: 12, bottom: 24 };
 
-export function LineChart({ series, height = 200, unit = "", emptyLabel = "—", accessibilityLabel }: LineChartProps): React.ReactElement {
+export function LineChart({ series, height = 200, unit = "", emptyLabel = "—", accessibilityLabel, formatX = (x) => String(Math.trunc(x)) }: LineChartProps): React.ReactElement {
   const [width, setWidth] = useState(0);
   const onLayout = (e: LayoutChangeEvent) => setWidth(Math.round(e.nativeEvent.layout.width));
 
@@ -36,8 +40,13 @@ export function LineChart({ series, height = 200, unit = "", emptyLabel = "—",
     const vs = all.map((p) => p.value);
     const lo = Math.min(...vs);
     const hi = Math.max(...vs);
-    const pad = (hi - lo) * 0.12 || Math.abs(hi) * 0.1 || 1;
-    return { xMin: Math.min(...xs), xMax: Math.max(...xs), yMin: lo - pad, yMax: hi + pad };
+    // At least one unit of range so a near-flat series (a dry week of rain)
+    // doesn't print the same tick three times; never dip below zero for
+    // non-negative data.
+    const span = Math.max(hi - lo, 1);
+    const pad = span * 0.12 + (span - (hi - lo)) / 2;
+    const yMin = lo >= 0 ? Math.max(0, lo - pad) : lo - pad;
+    return { xMin: Math.min(...xs), xMax: Math.max(...xs), yMin, yMax: Math.max(hi + pad, yMin + span) };
   }, [series]);
 
   if (bounds === null) {
@@ -55,7 +64,7 @@ export function LineChart({ series, height = 200, unit = "", emptyLabel = "—",
   const toX = (x: number) => PAD.left + ((x - bounds.xMin) / Math.max(bounds.xMax - bounds.xMin, 1e-9)) * plotW;
   const toY = (v: number) => PAD.top + (1 - (v - bounds.yMin) / Math.max(bounds.yMax - bounds.yMin, 1e-9)) * plotH;
   const ticks = [0, 0.5, 1].map((r) => bounds.yMin + r * (bounds.yMax - bounds.yMin));
-  const single = series.length === 1;
+  const single = series.filter((s) => s.muted !== true).length === 1;
 
   return (
     <View style={{ height }} onLayout={onLayout} accessible accessibilityRole="image" accessibilityLabel={accessibilityLabel}>
@@ -83,6 +92,9 @@ export function LineChart({ series, height = 200, unit = "", emptyLabel = "—",
             const line = pts.map((p, j) => `${j === 0 ? "M" : "L"}${toX(p.x).toFixed(1)},${toY(p.value).toFixed(1)}`).join(" ");
             const area = `${line} L${toX(pts[pts.length - 1]!.x).toFixed(1)},${PAD.top + plotH} L${toX(pts[0]!.x).toFixed(1)},${PAD.top + plotH} Z`;
             const lastPoint = pts[pts.length - 1]!;
+            if (s.muted === true) {
+              return <Path key={i} d={line} stroke={s.color} strokeOpacity={0.55} strokeWidth={1.25} fill="none" strokeLinejoin="round" />;
+            }
             return (
               <React.Fragment key={i}>
                 {single && <Path d={area} fill={`url(#fill-${i})`} />}
@@ -93,10 +105,10 @@ export function LineChart({ series, height = 200, unit = "", emptyLabel = "—",
             );
           })}
           <SvgText x={PAD.left} y={height - 6} fontSize={10} fill={Colors.textTertiary} fontFamily={FontFamily.medium}>
-            {String(Math.trunc(bounds.xMin))}
+            {formatX(bounds.xMin)}
           </SvgText>
           <SvgText x={width - PAD.right} y={height - 6} fontSize={10} fill={Colors.textTertiary} textAnchor="end" fontFamily={FontFamily.medium}>
-            {String(Math.trunc(bounds.xMax))}
+            {formatX(bounds.xMax)}
           </SvgText>
         </Svg>
       )}

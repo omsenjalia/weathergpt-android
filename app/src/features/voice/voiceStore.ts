@@ -251,6 +251,10 @@ export const useVoiceStore = create<VoiceStore>((set, get) => ({
           rate: context.ttsSpeed,
           isCurrent: () => generation === get().generation,
           onDone: done,
+          onRestFailed: (rest) => {
+            SpeechService.markFailed();
+            speakOnDevice(rest, done);
+          },
         });
         return;
       } catch {
@@ -260,15 +264,7 @@ export const useVoiceStore = create<VoiceStore>((set, get) => ({
         if (generation !== get().generation) return;
       }
     }
-    try {
-      Speech.speak(clean, {
-        language: get().context.ttsVoiceLocale,
-        rate: get().context.ttsSpeed,
-        onDone: done,
-        onStopped: done,
-        onError: done,
-      });
-    } catch { done(); }
+    speakOnDevice(clean, done);
   },
 
   stopSpeaking: () => {
@@ -288,6 +284,19 @@ export const useVoiceStore = create<VoiceStore>((set, get) => ({
     void Speech.stop();
   },
 }));
+
+function speakOnDevice(text: string, done: () => void): void {
+  const context = useVoiceStore.getState().context;
+  try {
+    Speech.speak(text, {
+      language: context.ttsVoiceLocale,
+      rate: context.ttsSpeed,
+      onDone: done,
+      onStopped: done,
+      onError: done,
+    });
+  } catch { done(); }
+}
 
 /// End of an utterance: prefer Bhashini's transcript of the recorded WAV,
 /// fall back to the device recognizer's.

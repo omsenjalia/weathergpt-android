@@ -37,7 +37,6 @@ export default function SettingsScreen(): React.ReactElement {
   const devEnabled = useDeveloperOptionsStore((s) => s.enabled);
   const sourcePin = useDeveloperOptionsStore((s) => s.sourcePin);
   const showProvenance = useDeveloperOptionsStore((s) => s.showProvenanceOnHome);
-  const animationOff = useDeveloperOptionsStore((s) => s.disableAnimatedSky);
   const ttsGender = useSettingsStore((s) => s.ttsGender);
   const previewing = useVoiceStore((s) => s.status === VoiceStatus.Speaking);
   const speechEngine = SpeechService.available();
@@ -171,7 +170,6 @@ export default function SettingsScreen(): React.ReactElement {
               </View>
               <Divider inset={Space.lg + 44} />
               <View style={styles.rowPad}>
-                <SwitchRow icon="motion-pause-outline" label="Disable animated sky" description="Gradient-only background" value={animationOff} onValueChange={(v) => void dev().patch({ disableAnimatedSky: v })} />
               </View>
               <Divider inset={Space.lg} />
               <View style={styles.devBlock}>

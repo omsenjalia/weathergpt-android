@@ -79,7 +79,7 @@ function HistoricalCard(): React.ReactElement {
             <View style={styles.stats}>
               <Stat label={t("lab.mean")} value={`${mean.toFixed(1)} ${unit}`} />
               <Stat label={t("lab.latest_vs_mean")} value={`${deviation >= 0 ? "+" : ""}${deviation.toFixed(1)}%`} color={deviation >= 0 ? Colors.tempWarm : Colors.tempCool} />
-              <Stat label={t("lab.coverage")} value={historicalRangeLabel(series.series) ?? "—"} />
+              <Stat label={t("lab.coverage")} value={compactRange(historicalRangeLabel(series.series))} />
             </View>
             <AppText variant="caption" tone="tertiary">
               {series.series.source ?? t("home.source_not_reported")}
@@ -183,13 +183,21 @@ function ComparisonCard(): React.ReactElement {
   );
 }
 
+/// "2001 – 2025" → "2001–25" so the range fits a third-width tile.
+function compactRange(label: string | null): string {
+  if (label === null) return "—";
+  const [first, last] = label.split(" – ");
+  if (first === undefined || last === undefined) return label;
+  return first.slice(0, 2) === last.slice(0, 2) ? `${first}–${last.slice(2)}` : `${first}–${last}`;
+}
+
 function Stat({ label, value, color }: { label: string; value: string; color?: string }): React.ReactElement {
   return (
     <View style={styles.stat}>
-      <AppText variant="caption" tone="tertiary">
+      <AppText variant="caption" tone="tertiary" numberOfLines={2}>
         {label}
       </AppText>
-      <AppText variant="numeric" color={color}>
+      <AppText variant="numeric" color={color} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
         {value}
       </AppText>
     </View>
