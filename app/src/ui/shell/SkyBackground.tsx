@@ -1,9 +1,8 @@
-/// Live sky behind every screen, bottom to top:
-///   1. palette gradient (time-of-day × weather) — always drawn
-///   2. live particles: rain streaks, twinkling stars, lightning
-///   3. horizon warmth at dawn/dusk and a soft sun/moon glow
-///   4. a fixed readability veil so white copy stays legible on any sky
-/// Developer mode can switch the animation off (gradient-only sky).
+/// Static sky behind every screen, bottom to top:
+///   1. palette gradient (time-of-day × weather)
+///   2. horizon warmth at dawn/dusk and a soft sun/moon glow
+///   3. a fixed readability veil so white copy stays legible on any sky
+/// Nothing animates: the gradient only changes when the time or weather does.
 
 import React from "react";
 import { StyleSheet, View } from "react-native";
@@ -11,16 +10,14 @@ import { LinearGradient } from "expo-linear-gradient";
 import Svg, { Defs, RadialGradient, Rect, Stop } from "react-native-svg";
 
 import { SkyScene } from "../../features/weather/weatherStore";
-import { SkyParticles } from "./SkyParticles";
 
 interface SkyBackgroundProps {
   scene: SkyScene;
-  animated: boolean;
   children?: React.ReactNode;
 }
 
-export function SkyBackground({ scene, animated, children }: SkyBackgroundProps): React.ReactElement {
-  const { palette, period, sky } = scene;
+export function SkyBackground({ scene, children }: SkyBackgroundProps): React.ReactElement {
+  const { palette } = scene;
   const showOrb = (palette.showSun || palette.showMoon);
   const orbY = palette.showSun ? palette.sunY : palette.moonY;
   const orbColor = palette.showSun ? palette.orbEnd : palette.orbStart;
@@ -28,7 +25,6 @@ export function SkyBackground({ scene, animated, children }: SkyBackgroundProps)
   return (
     <View style={[styles.root, { backgroundColor: palette.bottom }]}>
       <LinearGradient colors={[palette.top, palette.mid, palette.bottom]} locations={[0, 0.55, 1]} style={StyleSheet.absoluteFill} />
-      {animated && <SkyParticles period={period} sky={sky} />}
 
       {palette.horizonWarmth > 0 && (
         <LinearGradient

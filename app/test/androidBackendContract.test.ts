@@ -38,24 +38,25 @@ describe("weather request", () => {
     const dev = {
       ...DEFAULT_DEVELOPER_OPTIONS,
       enabled: true,
-      sourcePin: DevSourcePin.AccuWeather,
+      sourcePin: DevSourcePin.Imd,
       forecastDays: 3,
       hourlyHours: 24,
       supplementSecondaryFields: false,
     };
     const query = buildWeatherQuery({ lat: 23, lon: 72, mode: "researcher", dev });
-    expect(query).toMatchObject({ requested_source: "accuweather", forecast_days: 3, hourly_hours: 24, supplement: false });
+    expect(query).toMatchObject({ requested_source: "imd", forecast_days: 3, hourly_hours: 24, supplement: false });
     const defaults = buildWeatherQuery({ lat: 23, lon: 72, mode: "researcher", dev: { ...dev, enabled: false } });
     expect(defaults["requested_source"]).toBe("auto");
     expect("supplement" in defaults).toBe(false);
   });
 
   it("removed providers are not offered in settings", () => {
-    expect(Object.values(DevSourcePin).map((pin) => DEV_SOURCE_PIN_WIRE[pin])).toEqual(["auto", "open_meteo", "accuweather", "imd"]);
+    expect(Object.values(DevSourcePin).map((pin) => DEV_SOURCE_PIN_WIRE[pin])).toEqual(["auto", "open_meteo", "imd"]);
   });
 
   it("only declares endpoints this backend serves", () => {
-    expect(Object.values(ApiEndpoints)).not.toContain("/v2/weather/catalog");
+    for (const path of ["/v2/alerts", "/v2/imd"]) expect(Object.values(ApiEndpoints)).not.toContain(path);
+    expect(Object.values(ApiEndpoints)).toContain("/v2/weather/series");
   });
 });
 

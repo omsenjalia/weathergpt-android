@@ -1,6 +1,6 @@
 """WeatherGPT API — single FastAPI app serving mobile client.
 
-    weathergpt-app (mobile, Flutter)   → POST /chat, GET /weather, /advisory, /historical, /comparison, /health
+    mobile app                         → POST /chat, GET /weather, /advisory, /historical, /comparison, /health
 
 Layout
 ------

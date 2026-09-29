@@ -5,7 +5,7 @@ import { listeners } from "./stubs/recognition";
 import { players } from "./stubs/audio";
 import { ApiClient } from "../src/core/services/apiClient";
 import { ApiEndpoints } from "../src/core/config/apiEndpoints";
-import { SpeechService } from "../src/features/voice/speechService";
+import { SpeechService, splitLead } from "../src/features/voice/speechService";
 import { useVoiceStore, VoiceStatus, DEFAULT_VOICE_CONTEXT } from "../src/features/voice/voiceStore";
 
 beforeEach(() => {
@@ -86,5 +86,58 @@ describe("Bhashini speech", () => {
     await vi.waitFor(() => expect(heard).toEqual(["wheat"]));
     expect(post).not.toHaveBeenCalled();
     expect(useVoiceStore.getState().status).toBe(VoiceStatus.Idle);
+  });
+
+  it("splits a long answer after its first sentence, and keeps short ones whole", () => {
+    expect(splitLead("Rain likely tomorrow.")).toEqual(["Rain likely tomorrow."]);
+    const long = "Yes, take an umbrella in Shimla tomorrow. Rain is likely from about 1 PM, around 1 mm, with a high of 25 degrees.";
+    expect(splitLead(long)).toEqual([
+      "Yes, take an umbrella in Shimla tomorrow.",
+      "Rain is likely from about 1 PM, around 1 mm, with a high of 25 degrees.",
+    ]);
+    expect(splitLead("कल शिमला में बारिश की संभावना है। दोपहर एक बजे के आसपास हल्की बारिश हो सकती है, इसलिए छाता साथ रखें।")[0])
+      .toBe("कल शिमला में बारिश की संभावना है।");
+    // No break early enough: one request, as before.
+    expect(splitLead(`${"word ".repeat(40)}end. Tail sentence here.`)).toHaveLength(1);
+  });
+
+  it("plays the first sentence while the rest is synthesized, then the rest", async () => {
+    let releaseRest: (v: unknown) => void = () => undefined;
+    const post = vi.spyOn(ApiClient, "post").mockImplementation(async (_path, body) =>
+      String((body as { text: string }).text).startsWith("Yes")
+        ? { audio_base64: "TEFE" }
+        : new Promise((resolve) => { releaseRest = () => resolve({ audio_base64: "UkVTVA==" }); }),
+    );
+    await useVoiceStore.getState().speak(
+      "Yes, take an umbrella in Shimla tomorrow. Rain is likely from about 1 PM, around 1 mm, with a high of 25 degrees.",
+    );
+    // Both requests went out together; the lead is already playing.
+    expect(post).toHaveBeenCalledTimes(2);
+    expect(players).toHaveLength(1);
+    expect(useVoiceStore.getState().status).toBe(VoiceStatus.Speaking);
+
+    players[0]!.listeners.get("playbackStatusUpdate")?.({ didJustFinish: true });
+    expect(useVoiceStore.getState().status).toBe(VoiceStatus.Speaking);
+    releaseRest(null);
+    await vi.waitFor(() => expect(players).toHaveLength(2));
+    players[1]!.listeners.get("playbackStatusUpdate")?.({ didJustFinish: true });
+    expect(useVoiceStore.getState().status).toBe(VoiceStatus.Done);
+    expect(Speech.speak).not.toHaveBeenCalled();
+  });
+
+  it("speaks the rest on the device when only the rest fails", async () => {
+    vi.spyOn(ApiClient, "post").mockImplementation(async (_path, body) => {
+      if (String((body as { text: string }).text).startsWith("Yes")) return { audio_base64: "TEFE" };
+      throw new Error("502");
+    });
+    await useVoiceStore.getState().speak(
+      "Yes, take an umbrella in Shimla tomorrow. Showers are possible after 2 PM, so keep a jacket handy too.",
+    );
+    players[0]!.listeners.get("playbackStatusUpdate")?.({ didJustFinish: true });
+    await vi.waitFor(() => expect(Speech.speak).toHaveBeenCalledTimes(1));
+    expect(SpeechService.available()).toBe(false);
+    expect(vi.mocked(Speech.speak).mock.calls[0]?.[0]).toBe(
+      "Showers are possible after 2 PM, so keep a jacket handy too.",
+    );
   });
 });

@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import { ActivityIndicator, Platform, ScrollView, StyleSheet, View } from "react-native";
 import { WebView } from "react-native-webview";
 import { router } from "expo-router";
-import * as WebBrowser from "expo-web-browser";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppText, Colors, Icon, IconName, Layout, Radius, Space, StateView, Touchable } from "../../src/ui";
@@ -14,7 +13,6 @@ import {
   MapLayer,
   MapProduct,
   useMapStore,
-  weatherLabUrl,
   windyEmbedUrl,
 } from "../../src/features/explore/exploreStores";
 import { useLocationStore } from "../../src/features/location/locationStore";
@@ -69,7 +67,6 @@ export default function ExploreScreen(): React.ReactElement {
     if (place === null) setLocateError(true);
   };
 
-  const openWeatherLab = () => void WebBrowser.openBrowserAsync(weatherLabUrl(map)).catch(() => undefined);
   const layers = researcher ? MAP_ALL_LAYERS : MAP_BASIC_LAYERS;
   const bottom = Layout.tabBarHeight + 8 + Math.max(insets.bottom, Space.md) + Space.xl;
 
@@ -121,13 +118,6 @@ export default function ExploreScreen(): React.ReactElement {
                 Windy
               </AppText>
             </View>
-            <Touchable onPress={openWeatherLab} accessibilityLabel="Weather Lab" accessibilityHint="Opens Google DeepMind Weather Lab in the browser" style={styles.source}>
-              <Icon name="creation" size={15} color={Colors.textSecondary} />
-              <AppText variant="footnote" tone="secondary">
-                Weather Lab
-              </AppText>
-              <Icon name="open-in-new" size={12} color={Colors.textTertiary} />
-            </Touchable>
           </View>
         </View>
         {locateError && (

@@ -34,7 +34,7 @@ describe("i18n", () => {
   it("key counts stay within a sane band (287 at the Flutter port, grows with features)", () => {
     expect(translationKeyCount("en")).toBe(EN_KEYS.length);
     expect(EN_KEYS.length).toBeGreaterThanOrEqual(280);
-    expect(EN_KEYS.length).toBeLessThanOrEqual(340);
+    expect(EN_KEYS.length).toBeLessThanOrEqual(400);
   });
 
   it("every locale translates every English key (no silent English fallback)", () => {

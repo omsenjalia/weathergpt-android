@@ -9,27 +9,24 @@ import { SkyCondition, SkyPeriod } from "../weather/theme/atmosphereTheme";
 import { loadJson, saveJson, StorageKeys } from "../../lib/persistence";
 
 /// Which provider the app asks the backend to use. `auto` lets the backend
-/// run its IMD → AccuWeather → Open-Meteo policy; anything else
+/// run its IMD → Open-Meteo policy; anything else
 /// is an explicit pin and the backend returns that provider or an honest
 /// `unavailable` — it never silently substitutes another one.
 export enum DevSourcePin {
   Auto = "auto",
   OpenMeteo = "openMeteo",
-  AccuWeather = "accuweather",
   Imd = "imd",
 }
 
 export const DEV_SOURCE_PIN_WIRE: Record<DevSourcePin, string> = {
   [DevSourcePin.Auto]: "auto",
   [DevSourcePin.OpenMeteo]: "open_meteo",
-  [DevSourcePin.AccuWeather]: "accuweather",
   [DevSourcePin.Imd]: "imd",
 };
 
 export const DEV_SOURCE_PIN_LABEL: Record<DevSourcePin, string> = {
   [DevSourcePin.Auto]: "Auto (backend policy)",
   [DevSourcePin.OpenMeteo]: "Open-Meteo (pinned)",
-  [DevSourcePin.AccuWeather]: "AccuWeather (pinned)",
   [DevSourcePin.Imd]: "IMD (pinned)",
 };
 
@@ -39,7 +36,6 @@ export interface DeveloperOptions {
   forceSky: SkyCondition | null;
   forceTtsLocale: string | null;
   forceTtsSpeed: number | null;
-  disableAnimatedSky: boolean;
   showProvenanceOnHome: boolean;
   showFieldSourceBadges: boolean;
   sourcePin: DevSourcePin;
@@ -56,7 +52,6 @@ export const DEFAULT_DEVELOPER_OPTIONS: DeveloperOptions = {
   forceSky: null,
   forceTtsLocale: null,
   forceTtsSpeed: null,
-  disableAnimatedSky: false,
   showProvenanceOnHome: false,
   showFieldSourceBadges: true,
   sourcePin: DevSourcePin.Auto,
@@ -95,7 +90,8 @@ export const useDeveloperOptionsStore = create<DeveloperOptionsStore>((set, get)
     const raw = await loadJson<Partial<DeveloperOptions> | null>(StorageKeys.developerOptions);
     set({
       ...(raw ?? {}),
-      // A stale pin (e.g. a provider this backend does not ship) falls back to auto.
+      // A stale pin falls back to auto — e.g. "accuweather", which the backend
+      // removed (pinning it answers 422 on every weather request).
       sourcePin: isDevSourcePin(raw?.sourcePin) ? raw.sourcePin : DEFAULT_DEVELOPER_OPTIONS.sourcePin,
       hourlyHours: clamp(Math.round(Number(raw?.hourlyHours ?? 48)), 1, 168),
       forecastDays: clamp(Math.round(Number(raw?.forecastDays ?? 7)), 1, 15),

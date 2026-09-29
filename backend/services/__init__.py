@@ -1,4 +1,4 @@
-"""Shared backend services used by both clients (web `weathergpt`, mobile `weathergpt-app`).
+"""Shared backend services used by the web and mobile clients.
 
 - `open_meteo`  — thin Open-Meteo client + WMO code table (single source of truth)
 - `fusion`      — multi-provider current-conditions fusion engine

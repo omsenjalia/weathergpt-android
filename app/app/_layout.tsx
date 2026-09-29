@@ -21,13 +21,12 @@ export default function RootLayout(): React.ReactElement {
   const ready = useAppReady();
   useAgentContextSync(ready);
   const scene = useSkyScene();
-  const animationOff = useDeveloperOptionsStore((s) => s.enabled && s.disableAnimatedSky);
 
   return (
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
         <StatusBar style="light" />
-        <SkyBackground scene={scene} animated={ready && !animationOff}>
+        <SkyBackground scene={scene}>
           {ready ? (
             <ThemeProvider value={NAV_THEME}>
               <Stack

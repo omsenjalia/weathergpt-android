@@ -1,6 +1,6 @@
-"""Mobile app REST endpoints (Flutter `weathergpt-app`).
+"""Mobile app REST endpoints.
 
-Routes match `docs/web_app_api_contract.md` in weathergpt-app. Forecast structure, UV,
+Routes match the mobile app's API contract. Forecast structure, UV,
 AQI and sun times come from shared forecast service with IMD ->
 AccuWeather -> Open-Meteo priority. Legacy Open-Meteo direct path retained for
 backward compatibility but now goes through forecast service.

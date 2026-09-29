@@ -95,38 +95,94 @@ export function stopPlayback(): void {
   currentFile = null;
 }
 
+/// Splits an answer into a short lead sentence and the rest, so the lead can
+/// start playing while the rest is still being synthesized (Bhashini takes a
+/// few seconds per request, and the whole answer used to be awaited first).
+/// Short answers, or ones without an early sentence break, stay whole.
+export function splitLead(text: string): [string] | [string, string] {
+  if (text.length < LEAD_MIN_TOTAL) return [text];
+  const stop = /[.!?।॥](\s+)/g;
+  let match: RegExpExecArray | null;
+  while ((match = stop.exec(text)) !== null) {
+    const end = match.index + 1;
+    if (end > LEAD_MAX) break;
+    if (end >= LEAD_MIN) return [text.slice(0, end), text.slice(end + match[1]!.length)];
+  }
+  return [text];
+}
+
+const LEAD_MIN = 20;
+const LEAD_MAX = 160;
+const LEAD_MIN_TOTAL = 90;
+
+function audioFor(text: string, language: string, gender: TtsGender): Promise<string> {
+  const key = `${language}|${gender}|${text}`;
+  const hit = cache.get(key);
+  if (hit !== undefined) return Promise.resolve(hit);
+  return SpeechService.synthesize(text, language, gender).then((audio) => {
+    cache.set(key, audio);
+    if (cache.size > CACHE_LIMIT) cache.delete(cache.keys().next().value!);
+    return audio;
+  });
+}
+
 /// Speaks `text` with Bhashini. Resolves once playback has *started*;
 /// `onDone` fires when it finishes or is stopped. Throws when Bhashini or
 /// playback fails so the caller can fall back to on-device TTS.
+///
+/// The lead sentence and the rest are requested together; the lead plays as
+/// soon as its audio arrives and the rest follows it. If only the rest fails,
+/// `onRestFailed` gets that text (the caller speaks it on the device).
 export async function speakWithBhashini(
   text: string,
-  opts: { language: string; gender: TtsGender; rate: number; isCurrent: () => boolean; onDone: () => void },
+  opts: {
+    language: string;
+    gender: TtsGender;
+    rate: number;
+    isCurrent: () => boolean;
+    onDone: () => void;
+    onRestFailed?: (rest: string) => void;
+  },
 ): Promise<void> {
-  const key = `${opts.language}|${opts.gender}|${text}`;
-  let audio = cache.get(key);
-  if (audio === undefined) {
-    audio = await SpeechService.synthesize(text, opts.language, opts.gender);
-    cache.set(key, audio);
-    if (cache.size > CACHE_LIMIT) cache.delete(cache.keys().next().value!);
-  }
+  const [lead, rest] = splitLead(text);
+  const leadAudio = audioFor(lead, opts.language, opts.gender);
+  const restAudio = rest === undefined ? null : audioFor(rest, opts.language, opts.gender);
+  restAudio?.catch(() => undefined); // awaited later; never an unhandled rejection
+  const audio = await leadAudio;
   if (!opts.isCurrent()) return;
 
   if (!audioModeSet) {
     audioModeSet = true;
     await setAudioModeAsync({ playsInSilentMode: true }).catch(() => undefined);
   }
+  await play(audio, opts.rate, async () => {
+    if (restAudio === null || !opts.isCurrent()) return opts.onDone();
+    let next: string;
+    try {
+      next = await restAudio;
+    } catch {
+      if (!opts.isCurrent()) return;
+      if (opts.onRestFailed) return opts.onRestFailed(rest!);
+      return opts.onDone();
+    }
+    if (!opts.isCurrent()) return;
+    await play(next, opts.rate, opts.onDone);
+  });
+}
+
+async function play(audio: string, rate: number, onFinished: () => void): Promise<void> {
   stopPlayback();
   const player = createAudioPlayer(await sourceFor(audio));
   current = player;
   // Settings expose 0.3–1.0 for the device engine; map onto a natural range.
-  player.setPlaybackRate(Math.min(1.25, Math.max(0.75, 0.55 + opts.rate * 0.55)));
+  player.setPlaybackRate(Math.min(1.25, Math.max(0.75, 0.55 + rate * 0.55)));
   let finished = false;
   const finish = () => {
     if (finished) return;
     finished = true;
     sub.remove();
     if (current === player) stopPlayback();
-    opts.onDone();
+    onFinished();
   };
   const sub = player.addListener("playbackStatusUpdate", (status) => {
     if (status.didJustFinish) finish();

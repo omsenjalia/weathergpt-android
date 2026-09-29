@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { providerLabel } from "../../src/features/weather/format";
 import { AppState, RefreshControl, StyleSheet, View } from "react-native";
 import { router } from "expo-router";
 
@@ -85,7 +86,7 @@ export default function HomeScreen(): React.ReactElement {
           <DailyForecast snapshot={snapshot} units={units} onSelectDay={(index) => setDetail({ kind: "day", index })} />
           <MetricTiles snapshot={snapshot} units={units} onSelect={(metric) => setDetail({ kind: "metric", metric })} />
           <Attribution
-            source={snapshot.provenance.selectedSource ?? snapshot.provenance.source ?? null}
+            source={providerLabel(snapshot.provenance.selectedSource ?? snapshot.provenance.source ?? null)}
             detail={devEnabled && (showProvenance || lastRequest?.usedLegacyFallback) ? `${lastRequest?.endpoint ?? ""}${lastRequest?.usedLegacyFallback ? " · legacy fallback" : ""}${snapshot.provenance.runId ? ` · run ${snapshot.provenance.runId}` : ""}` : null}
           />
           <WeatherDetailSheet
