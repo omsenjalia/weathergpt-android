@@ -52,8 +52,14 @@ def prepare(env, root, now=None):
     now = now or datetime.now(timezone.utc)
     # One versionCode scheme across CI and nightly, well below Android's 2.1B limit.
     build_number = int(now.timestamp()) - 1577836800  # seconds since 2020-01-01 UTC
+    # Shared secret for the backend's X-Backend-Secret check; empty = the backend has none.
+    # Written only to app/.env (never GITHUB_ENV or logs) and restricted to a safe charset.
+    secret = env.get("BACKEND_SECRET", "").strip()
+    if secret and not re.fullmatch(r"[A-Za-z0-9._~+/=-]{16,256}", secret):
+        raise ValueError("BACKEND_SECRET must be 16-256 characters of letters, digits or ._~+/=-")
     # Expo inlines EXPO_PUBLIC_* values from app/.env at bundle time.
-    (app / ".env").write_text(f"EXPO_PUBLIC_BACKEND_URL={url}\n")
+    lines = f"EXPO_PUBLIC_BACKEND_URL={url}\n" + (f"EXPO_PUBLIC_BACKEND_SECRET={secret}\n" if secret else "")
+    (app / ".env").write_text(lines)
     sha = env.get("GITHUB_SHA", "local")
     artifact = f"weathergpt-{'release-signed' if mode == 'signed' else 'debug-signed'}-{sha}"
     if local_backend:

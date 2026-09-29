@@ -61,6 +61,7 @@ jobs:
         id: prepare
         env:
           BACKEND_URL: ${{ vars.BACKEND_URL || secrets.BACKEND_URL }}
+          BACKEND_SECRET: ${{ secrets.BACKEND_SECRET }}
           KEYSTORE_BASE64: ${{ github.event_name != 'pull_request' && secrets.KEYSTORE_BASE64 || '' }}
           KEYSTORE_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.KEYSTORE_PASSWORD || '' }}
           KEY_ALIAS: ${{ github.event_name != 'pull_request' && secrets.KEY_ALIAS || '' }}

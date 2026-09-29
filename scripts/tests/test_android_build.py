@@ -54,6 +54,18 @@ class AndroidBuildTests(unittest.TestCase):
         self.assertEqual(store.read_bytes(), b"test-keystore")
         self.assertEqual(store.stat().st_mode & 0o777, 0o600)
 
+    def test_backend_secret_goes_only_into_the_app_env(self):
+        values, _ = self.prepare(BACKEND_URL="https://weather.example.com", BACKEND_SECRET="Abc123-shared_secret.XYZ")
+        self.assertEqual((self.root / "app/.env").read_text(),
+                         "EXPO_PUBLIC_BACKEND_URL=https://weather.example.com\n"
+                         "EXPO_PUBLIC_BACKEND_SECRET=Abc123-shared_secret.XYZ\n")
+        self.assertNotIn("Abc123-shared_secret.XYZ", repr(values))  # never exported to GITHUB_ENV
+
+    def test_backend_secret_rejects_short_or_injectable_values(self):
+        for secret in ("short", "a" * 20 + "\nGROQ_API_KEY=x", "a" * 20 + " b", "a" * 20 + "$HOME"):
+            with self.subTest(secret=secret), self.assertRaises(ValueError):
+                self.prepare(BACKEND_URL="https://weather.example.com", BACKEND_SECRET=secret)
+
     def test_url_rejects_credentials_and_env_injection(self):
         for url in ("not-a-url", "https://user:pass@example.com", "https://example.com\nGROQ_API_KEY=x", "https://example.com?x=1", 'https://example.com/$SECRET'):
             with self.subTest(url=url), self.assertRaises(ValueError):
