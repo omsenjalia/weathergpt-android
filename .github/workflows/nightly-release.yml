@@ -64,6 +64,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
           RELEASE_SHA: ${{ github.sha }}
           STAMP: ${{ needs.gate.outputs.stamp }}
+          VT_API_KEY: ${{ secrets.VIRUSTOTAL_API_KEY }}
         run: |
           tag="nightly-$STAMP"
           # A rerun must not replace an APK under a tag for a different commit.
@@ -72,7 +73,32 @@ jobs:
             echo "::error::Release or tag $tag already exists; leaving its tag and APK unchanged."
             exit 1
           fi
+          sha=$(sha256sum release.apk | cut -d' ' -f1)
+          # VirusTotal scan (70+ engines) so judges can see the APK is clean. Best effort:
+          # a VirusTotal outage never blocks the release. Files over 32 MB need an upload URL.
+          report=""
+          if [ -n "$VT_API_KEY" ]; then
+            upload_url=$(curl -fsS -H "x-apikey: $VT_API_KEY" https://www.virustotal.com/api/v3/files/upload_url | jq -r .data || true)
+            if [ -n "$upload_url" ] && [ "$upload_url" != null ] && \
+               curl -fsS -H "x-apikey: $VT_API_KEY" -F "file=@release.apk" "$upload_url" >/dev/null; then
+              report="https://www.virustotal.com/gui/file/$sha"
+            else
+              echo "::warning::VirusTotal upload failed; publishing without a report link."
+            fi
+          fi
+          {
+            echo "**Install:** download \`release.apk\` on your Android phone (7.0+), open it, allow \"Install unknown apps\" for your browser, then tap Install."
+            echo
+            if [ -n "$report" ]; then
+              echo "**VirusTotal report:** $report"
+            else
+              echo "**VirusTotal:** upload \`release.apk\` at https://www.virustotal.com to scan it."
+            fi
+            echo
+            echo "**SHA-256:** \`$sha\`"
+            echo
+            echo "Built and signed by GitHub Actions from commit $RELEASE_SHA."
+          } > notes.md
           gh release create "$tag" release.apk \
             --target "$RELEASE_SHA" --title "WeatherGPT Android Nightly $STAMP" \
-            --prerelease --generate-notes \
-            --notes 'Download release.apk directly. This is a signed Android prerelease, not a Play Store production release.'
+            --latest --notes-file notes.md
