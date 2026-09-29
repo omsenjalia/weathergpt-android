@@ -1,6 +1,6 @@
 /// Where a rendered weather value came from, and how fresh it is — port of
 /// `lib/core/models/data_provenance.dart`. The app never *chooses* a provider
-/// (the backend owns IMD → WeatherNext → AccuWeather → Open-Meteo selection);
+/// (the backend owns IMD → WeatherNext → Open-Meteo selection);
 /// this model only records what the backend reported so the UI can attribute a
 /// source and say "source not reported" instead of guessing.
 

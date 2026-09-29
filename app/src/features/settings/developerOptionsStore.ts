@@ -9,27 +9,27 @@ import { SkyCondition, SkyPeriod } from "../weather/theme/atmosphereTheme";
 import { loadJson, saveJson, StorageKeys } from "../../lib/persistence";
 
 /// Which provider the app asks the backend to use. `auto` lets the backend
-/// run its IMD → AccuWeather → Open-Meteo policy; anything else
+/// run its IMD → WeatherNext → Open-Meteo policy; anything else
 /// is an explicit pin and the backend returns that provider or an honest
 /// `unavailable` — it never silently substitutes another one.
 export enum DevSourcePin {
   Auto = "auto",
+  WeatherNext = "weathernext",
   OpenMeteo = "openMeteo",
-  AccuWeather = "accuweather",
   Imd = "imd",
 }
 
 export const DEV_SOURCE_PIN_WIRE: Record<DevSourcePin, string> = {
   [DevSourcePin.Auto]: "auto",
+  [DevSourcePin.WeatherNext]: "weathernext",
   [DevSourcePin.OpenMeteo]: "open_meteo",
-  [DevSourcePin.AccuWeather]: "accuweather",
   [DevSourcePin.Imd]: "imd",
 };
 
 export const DEV_SOURCE_PIN_LABEL: Record<DevSourcePin, string> = {
   [DevSourcePin.Auto]: "Auto (backend policy)",
+  [DevSourcePin.WeatherNext]: "WeatherNext (pinned)",
   [DevSourcePin.OpenMeteo]: "Open-Meteo (pinned)",
-  [DevSourcePin.AccuWeather]: "AccuWeather (pinned)",
   [DevSourcePin.Imd]: "IMD (pinned)",
 };
 
@@ -95,7 +95,8 @@ export const useDeveloperOptionsStore = create<DeveloperOptionsStore>((set, get)
     const raw = await loadJson<Partial<DeveloperOptions> | null>(StorageKeys.developerOptions);
     set({
       ...(raw ?? {}),
-      // A stale pin (e.g. a provider this backend does not ship) falls back to auto.
+      // A stale pin falls back to auto — e.g. "accuweather", which backend v3 removed
+      // (pinning it now answers 422 on every weather request).
       sourcePin: isDevSourcePin(raw?.sourcePin) ? raw.sourcePin : DEFAULT_DEVELOPER_OPTIONS.sourcePin,
       hourlyHours: clamp(Math.round(Number(raw?.hourlyHours ?? 48)), 1, 168),
       forecastDays: clamp(Math.round(Number(raw?.forecastDays ?? 7)), 1, 15),
