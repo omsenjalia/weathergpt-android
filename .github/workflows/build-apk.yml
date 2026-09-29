@@ -14,6 +14,10 @@ on:
     secrets:
       BACKEND_URL:
         required: false
+      EXPO_PUBLIC_BACKEND_URL:
+        required: false
+      BACKEND_SECRET:
+        required: false
       KEYSTORE_BASE64:
         required: false
       KEYSTORE_PASSWORD:
@@ -60,7 +64,10 @@ jobs:
       - name: Configure backend and signing
         id: prepare
         env:
-          BACKEND_URL: ${{ vars.BACKEND_URL || secrets.BACKEND_URL }}
+          # This repo stores the URL as EXPO_PUBLIC_BACKEND_URL; without it every CI APK was built
+          # against the emulator-only http://10.0.2.2:8888 and could not reach production.
+          BACKEND_URL: ${{ vars.BACKEND_URL || secrets.BACKEND_URL || secrets.EXPO_PUBLIC_BACKEND_URL || 'https://weathergpt-backend.vercel.app' }}
+          BACKEND_SECRET: ${{ secrets.BACKEND_SECRET }}
           KEYSTORE_BASE64: ${{ github.event_name != 'pull_request' && secrets.KEYSTORE_BASE64 || '' }}
           KEYSTORE_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.KEYSTORE_PASSWORD || '' }}
           KEY_ALIAS: ${{ github.event_name != 'pull_request' && secrets.KEY_ALIAS || '' }}

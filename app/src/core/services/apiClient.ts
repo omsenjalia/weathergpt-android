@@ -22,6 +22,18 @@ function envBackendUrl(): string | null {
   return (typeof fromProcess === "string" ? fromProcess : null) ?? (typeof fromConstants === "string" ? fromConstants : null);
 }
 
+/// Shared secret the backend requires in `X-Backend-Secret` (its BACKEND_SECRET).
+/// Inlined at build time from EXPO_PUBLIC_BACKEND_SECRET; unset sends nothing.
+function backendSecret(): string | null {
+  const fromProcess = typeof process !== "undefined" ? process.env.EXPO_PUBLIC_BACKEND_SECRET : undefined;
+  const fromConstants = (Constants.expoConfig?.extra as Record<string, unknown> | undefined)?.BACKEND_SECRET;
+  const value = typeof fromProcess === "string" && fromProcess.trim() !== "" ? fromProcess
+    : typeof fromConstants === "string" ? fromConstants : "";
+  return value.trim() === "" ? null : value.trim();
+}
+
+export const BACKEND_SECRET_MISMATCH = "This build of WeatherGPT isn't authorised to connect to the server. Please update the app.";
+
 export function apiBaseUrl(): string {
   return resolveBackendUrl({
     defineUrl: envBackendUrl(),
@@ -49,6 +61,9 @@ function summarizeBody(body: Record<string, unknown> | null): string | null {
 function mapFetchError(error: unknown, status: number, bodyText: string | null): Error {
   if (error instanceof NetworkError || error instanceof ServerError || error instanceof ValidationError) {
     return error;
+  }
+  if (status === 401 && bodyText?.includes("backend_secret_mismatch")) {
+    return new ServerError(BACKEND_SECRET_MISMATCH);
   }
   const detail = (() => {
     if (!bodyText) return null;
@@ -82,6 +97,7 @@ async function request(
   let bodyText: string | null = null;
 
   const url = new URL(apiBaseUrl() + path);
+  const secret = backendSecret();
   for (const [key, value] of Object.entries(query)) {
     if (value !== null && value !== undefined) url.searchParams.set(key, String(value));
   }
@@ -96,6 +112,7 @@ async function request(
         headers: {
           Accept: "application/json",
           "Accept-Language": language,
+          ...(secret !== null ? { "X-Backend-Secret": secret } : {}),
           ...(method === "POST" ? { "Content-Type": "application/json" } : {}),
         },
         body: method === "POST" ? JSON.stringify(opts?.data ?? {}) : undefined,
