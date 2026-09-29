@@ -1,5 +1,23 @@
 # 🌤️ WeatherGPT Android — AI-Powered Weather Intelligence
 
+> ## 📥 For judges — install the app on your phone (about 2 minutes)
+>
+> **Direct download (always the newest signed build):** [**release.apk**](https://github.com/omsenjalia/weathergpt-android/releases/latest/download/release.apk)  ·  [All releases](https://github.com/omsenjalia/weathergpt-android/releases)
+>
+> 1. **On your Android phone** (Android 7.0 or newer), open the link above in Chrome. The file is about 50 MB.
+>    If Chrome warns that the file might be harmful, tap **Download anyway** — it warns about every app installed from outside the Play Store.
+> 2. **Open the downloaded `release.apk`** from the notification or the **Files → Downloads** folder.
+> 3. **Allow the install.** When Android asks, tap **Settings → Allow from this source** (“Install unknown apps”) for Chrome, then go back and tap **Install**.
+> 4. **If Google Play Protect shows a prompt**, tap **More details → Install anyway**. This appears because the app is not from the Play Store, not because anything was detected.
+> 5. **Open WeatherGPT**, choose your language and role (Everyone, Farmer or Researcher), and allow location access for local weather. An internet connection is required.
+>
+> **Is it safe? — VirusTotal report.** Every release is scanned by [VirusTotal](https://www.virustotal.com) (70+ antivirus engines).
+> Open the [latest release](https://github.com/omsenjalia/weathergpt-android/releases/latest): its notes link the **VirusTotal report for that exact APK** and list its **SHA-256** checksum.
+> To check the file you downloaded matches, compare its SHA-256 with the one in the release notes
+> (Windows: `certutil -hashfile release.apk SHA256` · macOS/Linux: `shasum -a 256 release.apk`), or upload it yourself at [virustotal.com](https://www.virustotal.com).
+>
+> Updating: download and install the newer `release.apk` over the old one — your settings are kept.
+
 [![SIH 2026](https://img.shields.io/badge/SIH-2026-orange.svg?style=for-the-badge&logo=target)](https://www.sih.gov.in/)
 [![Problem Statement](https://img.shields.io/badge/Problem%20Statement-SIH26068-blue.svg?style=for-the-badge)](https://www.sih.gov.in/)
 [![Theme](https://img.shields.io/badge/Theme-Disaster%20Management-red.svg?style=for-the-badge)](https://www.sih.gov.in/)
@@ -18,21 +36,18 @@
 
 ### ⚡ Method 1: Download a Built APK (Recommended)
 
-A **Nightly Release APK** workflow builds a signed APK at **00:00 IST (18:30 UTC)**
-on days when the default branch has new commits (manual dispatch always runs).
+See **[For judges](#-for-judges--install-the-app-on-your-phone-about-2-minutes)** at the top: the
+[latest release](https://github.com/omsenjalia/weathergpt-android/releases/latest) always carries a signed `release.apk`, its SHA-256 and its
+VirusTotal report.
 
-1. Open the repository's **Releases** page.
-2. Download **release.apk** directly to your Android phone; no extraction needed.
-3. Enable “Install unknown apps” for your browser if prompted, then install.
+A **Nightly Release APK** workflow builds and publishes that release at **00:00 IST (18:30 UTC)** on days
+when the default branch has new commits (a manual dispatch always runs). It needs the backend URL and the
+four signing secrets (see [CI & signing](#-ci-and-signed-nightly-setup)); `VIRUSTOTAL_API_KEY` adds the
+VirusTotal scan.
 
-Nightlies are **prereleases** and require the `BACKEND_URL` repository variable
-(HTTPS) plus the four signing secrets (see [CI & signing](#-ci-and-signed-nightly-setup)).
-
-**CI Build APK** also produces a release-mode APK artifact for every PR and push.
-Without signing secrets it is clearly labeled **debug-signed** (and
-`local-backend` when no backend URL is configured): a developer build, not a
-distributable release. CI APKs are **arm64-v8a** only (modern phones); nightlies
-also include 32-bit ARM.
+**CI Build APK** also produces an APK artifact for every PR and push. Without signing secrets it is
+labeled **debug-signed**: a developer build, not a distributable release. CI APKs are **arm64-v8a** only
+(modern phones); nightlies also include 32-bit ARM.
 
 ### 🔧 Method 2: Build Locally (Android)
 
@@ -249,10 +264,11 @@ access. APK compilation and device testing remain release gates.
   (Bun → `expo prebuild` → Gradle `assembleRelease`). PR builds never receive
   keystore credentials.
 - **`nightly-release.yml`**: 18:30 UTC (00:00 IST) on the default branch when there
-  are recent commits; publishes an immutable `nightly-YYYYMMDD` **prerelease**.
+  are recent commits; publishes an immutable `nightly-YYYYMMDD` release, marked **latest**
+  (so `releases/latest/download/release.apk` always works), with its SHA-256 and VirusTotal report.
 
-Set repository **variable** `BACKEND_URL` to your deployed HTTPS backend
-(`BACKEND_URL` secret is also accepted), and these Actions secrets:
+Set the backend URL (repository variable `BACKEND_URL`, or the `BACKEND_URL` /
+`EXPO_PUBLIC_BACKEND_URL` secret; defaults to the production backend) and these Actions secrets:
 
 | Secret | Value |
 | :--- | :--- |
@@ -260,6 +276,8 @@ Set repository **variable** `BACKEND_URL` to your deployed HTTPS backend
 | `KEYSTORE_PASSWORD` | Keystore password |
 | `KEY_ALIAS` | Signing key alias |
 | `KEY_PASSWORD` | Key password |
+| `BACKEND_SECRET` | Shared secret the backend requires (`X-Backend-Secret`) |
+| `VIRUSTOTAL_API_KEY` | Optional: free [VirusTotal API key](https://www.virustotal.com/gui/my-apikey); each nightly APK is scanned and the report linked in its release notes |
 
 Partial credentials fail; nightlies never fall back to debug keys or a local URL.
 Release upgrades require the same signing certificate as the installed APK.
